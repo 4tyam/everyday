@@ -1,19 +1,66 @@
 # Everyday
 
-pnpm monorepo (pnpm@9, Node >=20). Workspaces defined in `pnpm-workspace.yaml` covering `apps/*` and `packages/*`. TypeScript (strict, ES2020) throughout with a shared `tsconfig.base.json`.
+pnpm monorepo (`pnpm@9`, Node `>=20`) with workspaces in `apps/*` and `packages/*`. TypeScript strict mode via shared `tsconfig.base.json`.
 
-## apps/mobile
+## Current architecture
 
-Expo SDK 54 React Native app (React 19, RN 0.81). Entry point is `index.js` -> `App.tsx`. Uses `expo start` for dev. The app reads `EXPO_PUBLIC_API_URL` from `.env.local` to reach the API. Currently has a health-check screen that fetches `/health` and validates the response with the shared Zod schema. EAS builds configured via root scripts (`eas:ios`, `eas:android`).
+### `apps/api`
+- Express **5** API (`type: module`), entry at `src/index.ts`, app wiring in `src/app.ts`.
+- Better Auth mounted at `/api/auth/*splat` via `toNodeHandler`.
+- Auth config in `src/auth.ts`:
+  - Drizzle adapter against Postgres
+  - email/password enabled
+  - Google OAuth enabled when `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` exist
+  - Google prompt set to `select_account`
+  - account linking enabled for `google` + `email-password`
+  - Expo plugin enabled
+- Drizzle schema files:
+  - Better Auth schema: `src/db/auth-schema.ts`
+  - Legacy app schema: `src/db/schema.ts` (legacy `users` table removed)
+- Migrations in `apps/api/drizzle`.
 
-## apps/api
+### `apps/mobile`
+- Expo SDK 54 app (React 19 / RN 0.81).
+- Auth client in `src/lib/auth.ts` using `@better-auth/expo/client` + `expo-secure-store`.
+- App-wide auth context added:
+  - `src/context/auth-context.tsx` (`AuthProvider`, `useAuth`)
+- `App.tsx` currently has a basic auth demo UI:
+  - sign up / sign in with email
+  - Google sign in
+  - session display + sign out
 
-Express 4 server. Entry at `src/index.ts` which loads dotenv then starts listening (default port 3000). App setup in `src/app.ts` — CORS, JSON body parser, and route mounting. Routes live in `src/routes/`. Database is PostgreSQL via Drizzle ORM; schema in `src/db/schema.ts` (currently a `users` table), connection singleton in `src/db/client.ts` using `DATABASE_URL`. Drizzle config at `drizzle.config.ts`, migrations output to `./drizzle`. Dev runs via `tsx watch`. DB commands: `db:generate`, `db:migrate`, `db:studio`.
+### `packages/shared`
+- Shared workspace package (`shared`) with Zod schemas/types/constants.
 
-## packages/shared
+## Local dev + database
 
-Shared library consumed by both apps as `"shared": "workspace:*"`. Exports Zod schemas (`src/schemas.ts`), inferred TypeScript types (`src/types.ts`), and constants (`src/constants.ts`). Must be built (`tsc`) before dependents can use it; `prepare` script handles this automatically on install.
+- Local Postgres + Adminer run via Docker Compose.
+- Key root scripts:
+  - `pnpm dev` / `pnpm dev:full`: starts DB, API, and mobile
+  - `pnpm dev:api` (alias `pnpm api`): starts DB + API
+  - `pnpm dev:mobile`: mobile only
+  - `pnpm db:up`, `pnpm db:down`, `pnpm db:status`, `pnpm db:logs`, `pnpm db:psql`
+  - `pnpm db:studio`: starts DB and Drizzle Studio
 
-## Dev workflow
+## Important env vars
 
-`pnpm dev` runs `scripts/dev.sh` which starts the API in the background and Expo in the foreground. `pnpm dev:api` and `pnpm dev:mobile` run them individually.
+### API (`apps/api/.env`)
+- `DATABASE_URL`
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL` (e.g. `http://localhost:3000/api/auth`)
+- `BETTER_AUTH_TRUSTED_ORIGINS`
+- `APP_SCHEME` (default `everyday`)
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+### Mobile (`apps/mobile/.env.local`)
+- `EXPO_PUBLIC_API_URL` (e.g. `http://localhost:3000`)
+- `EXPO_PUBLIC_APP_SCHEME` (default `everyday`)
+
+## Notes for next sessions
+
+- For Google OAuth, redirect URI in Google Cloud must exactly match:
+  - `http://localhost:3000/api/auth/callback/google`
+  - or tunnel/domain equivalent.
+- Email/password -> Google linking is enabled.
+- Google-first -> email/password login is **not** automatic unless a separate set-password / credential-link flow is implemented.

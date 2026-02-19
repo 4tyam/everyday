@@ -38,6 +38,14 @@ postgres://postgres:postgres@localhost:5433/everyday
 pnpm --filter api db:migrate
 ```
 
+Generate auth schema again after Better Auth config changes:
+
+```bash
+pnpm --filter api auth:generate
+pnpm --filter api db:generate
+pnpm --filter api db:migrate
+```
+
 ### Open a SQL shell
 
 ```bash
@@ -58,8 +66,56 @@ Option 1: Adminer
 Option 2: Drizzle Studio
 
 ```bash
-pnpm --filter api db:studio
+pnpm db:studio
 ```
+
+## Better Auth (Email + Password)
+
+### API env
+
+`apps/api/.env` now expects:
+
+- `BETTER_AUTH_URL` (default `http://localhost:3000/api/auth`)
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_TRUSTED_ORIGINS` (comma-separated)
+- `APP_SCHEME` (default `everyday`)
+
+OAuth placeholders are already in `.env`/`.env.example` for phase 2:
+
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`
+
+### Google OAuth setup
+
+1. Create OAuth credentials in Google Cloud Console (Web application).
+2. Add this authorized redirect URI:
+   - `http://localhost:3000/api/auth/callback/google`
+   - Or `<your-public-auth-url>/api/auth/callback/google` in tunneled/dev cloud setups.
+3. Put credentials in `apps/api/.env`:
+   - `GOOGLE_CLIENT_ID=...`
+   - `GOOGLE_CLIENT_SECRET=...`
+4. Restart the API.
+
+### Mobile env
+
+`apps/mobile/.env.local` should include:
+
+```bash
+EXPO_PUBLIC_API_URL=http://localhost:3000
+EXPO_PUBLIC_APP_SCHEME=everyday
+```
+
+For physical device testing, use your machine LAN IP:
+
+```bash
+EXPO_PUBLIC_API_URL=http://<your-lan-ip>:3000
+```
+
+### Auth endpoints
+
+Better Auth is mounted at:
+
+- `http://localhost:3000/api/auth/*`
 
 ### One command for full local dev
 
