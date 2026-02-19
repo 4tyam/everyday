@@ -1,0 +1,28 @@
+{
+  "name": "everyday",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev:api": "pnpm db:up && pnpm --filter api dev",
+    "api": "pnpm dev:api",
+    "dev:mobile": "pnpm --filter mobile dev",
+    "dev": "bash ./scripts/dev.sh",
+    "dev:full": "pnpm dev",
+    "db:up": "docker compose up -d postgres adminer",
+    "db:down": "docker compose down",
+    "db:status": "docker compose ps",
+    "db:logs": "docker compose logs -f postgres",
+    "db:psql": "docker compose exec postgres psql -U postgres -d everyday",
+    "db:studio": "pnpm db:up && pnpm --filter api db:studio",
+    "build:mobile": "pnpm --filter mobile exec expo prebuild --clean",
+    "run:mobile": "pnpm --filter mobile exec expo run:ios --device",
+    "eas:ios": "pnpm --filter mobile exec eas build --platform ios",
+    "eas:android": "pnpm --filter mobile exec eas build --platform android"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
