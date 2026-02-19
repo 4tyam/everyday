@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-const { Pool } = require("pg");
+import { Pool } from "pg";
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 

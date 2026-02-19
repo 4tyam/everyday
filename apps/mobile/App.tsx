@@ -1,75 +1,202 @@
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
-import { apiHealthSchema, type ApiHealth, SERVICE_NAME } from "shared";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { authClient } from "./src/lib/auth";
+import { AuthProvider, useAuth } from "./src/context/auth-context";
 
-type HealthState = {
-  data: ApiHealth | null;
-  error: string | null;
-  loading: boolean;
-};
+const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+const appScheme = process.env.EXPO_PUBLIC_APP_SCHEME ?? "everyday";
+const signedInRedirectUrl = `${appScheme}://auth/success`;
 
-const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+function AppContent() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [screen, setScreen] = useState<"auth" | "home">("auth");
 
-export default function App() {
-  const [state, setState] = useState<HealthState>({
-    data: null,
-    error: null,
-    loading: true
-  });
-
-  const healthUrl = useMemo(() => `${apiBaseUrl}/health`, []);
-
-  const loadHealth = async () => {
-    setState((prev) => ({ ...prev, loading: true, error: null }));
-
-    try {
-      const response = await fetch(healthUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const json = await response.json();
-      const parsed = apiHealthSchema.safeParse(json);
-
-      if (!parsed.success) {
-        throw new Error("Invalid /health response shape");
-      }
-
-      setState({ data: parsed.data, error: null, loading: false });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      setState({ data: null, error: message, loading: false });
-    }
-  };
+  const { user, isLoading, error: sessionError, refetch, signOut } = useAuth();
 
   useEffect(() => {
-    loadHealth();
-  }, []);
+    if (user) {
+      setScreen("home");
+      return;
+    }
+
+    setScreen("auth");
+  }, [user]);
+
+  const onSignUp = async () => {
+    setActionError(null);
+    setActionLoading(true);
+
+    const response = await authClient.signUp.email({
+      name,
+      email,
+      password,
+    });
+
+    if (response.error) {
+      setActionError(response.error.message ?? "Sign up failed");
+      setActionLoading(false);
+      return;
+    }
+
+    await refetch();
+    setActionLoading(false);
+  };
+
+  const onSignIn = async () => {
+    setActionError(null);
+    setActionLoading(true);
+
+    const response = await authClient.signIn.email({
+      email,
+      password,
+    });
+
+    if (response.error) {
+      setActionError(response.error.message ?? "Sign in failed");
+      setActionLoading(false);
+      return;
+    }
+
+    await refetch();
+    setActionLoading(false);
+  };
+
+  const onSignOut = async () => {
+    setActionError(null);
+    setActionLoading(true);
+
+    const response = await signOut();
+    if (response.error) {
+      setActionError(response.error.message ?? "Sign out failed");
+      setActionLoading(false);
+      return;
+    }
+
+    await refetch();
+    setActionLoading(false);
+  };
+
+  const onGoogleSignIn = async () => {
+    setActionError(null);
+    setActionLoading(true);
+
+    const response = await authClient.signIn.social({
+      provider: "google",
+      callbackURL: signedInRedirectUrl,
+      newUserCallbackURL: signedInRedirectUrl,
+    });
+
+    if (response.error) {
+      setActionError(response.error.message ?? "Google sign in failed");
+      setActionLoading(false);
+      return;
+    }
+
+    await refetch();
+    setActionLoading(false);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Everyday Mobile</Text>
-        <Text style={styles.text}>Shared service: {SERVICE_NAME}</Text>
-        <Text style={styles.text}>API URL: {apiBaseUrl}</Text>
+        <Text style={styles.title}>Everyday Auth</Text>
+        <Text style={styles.text}>Auth base: {apiBaseUrl}/api/auth</Text>
 
-        {state.loading && <ActivityIndicator size="small" />}
+        {(isLoading || actionLoading) && <ActivityIndicator size="small" />}
 
-        {state.error && <Text style={[styles.text, styles.error]}>Health check failed: {state.error}</Text>}
+        {!!sessionError && (
+          <Text style={[styles.text, styles.error]}>
+            Session error: {sessionError.message ?? "Could not read session"}
+          </Text>
+        )}
 
-        {state.data && (
+        {!!actionError && (
+          <Text style={[styles.text, styles.error]}>
+            Auth error: {actionError}
+          </Text>
+        )}
+
+        {screen === "home" && user ? (
           <View style={styles.section}>
-            <Text style={styles.text}>ok: {String(state.data.ok)}</Text>
-            <Text style={styles.text}>service: {state.data.service}</Text>
-            <Text style={styles.text}>time: {state.data.time}</Text>
+            <Text style={styles.text}>Signed in as</Text>
+            <Text style={styles.textStrong}>{user.email}</Text>
+            <Text style={styles.text}>userId: {user.id}</Text>
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <TextInput
+              autoCapitalize="words"
+              placeholder="Name"
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+            />
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              placeholder="Email"
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+            />
+            <TextInput
+              autoCapitalize="none"
+              autoComplete="password"
+              secureTextEntry
+              placeholder="Password"
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+            />
+
+            <Pressable style={styles.button} onPress={onSignUp}>
+              <Text style={styles.buttonText}>Sign up with email</Text>
+            </Pressable>
+            <Pressable style={styles.formButtonSecondary} onPress={onSignIn}>
+              <Text style={styles.formButtonSecondaryText}>
+                Sign in with email
+              </Text>
+            </Pressable>
+            <Pressable style={styles.googleButton} onPress={onGoogleSignIn}>
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </Pressable>
           </View>
         )}
 
-        <Pressable style={styles.button} onPress={loadHealth}>
-          <Text style={styles.buttonText}>Refresh health</Text>
-        </Pressable>
+        <View style={styles.row}>
+          <Pressable
+            style={styles.rowButtonSecondary}
+            onPress={() => refetch()}
+          >
+            <Text style={styles.rowButtonSecondaryText}>Refresh session</Text>
+          </Pressable>
+          <Pressable style={styles.buttonDanger} onPress={onSignOut}>
+            <Text style={styles.buttonText}>Sign out</Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
@@ -78,35 +205,100 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f4f6f8",
     justifyContent: "center",
-    padding: 20
+    padding: 20,
   },
   card: {
     backgroundColor: "#ffffff",
     borderRadius: 14,
     padding: 20,
-    gap: 12
+    gap: 12,
   },
   title: {
     fontSize: 24,
-    fontWeight: "700"
+    fontWeight: "700",
   },
   section: {
-    gap: 6
+    gap: 10,
   },
   text: {
-    fontSize: 16
+    fontSize: 16,
+  },
+  textStrong: {
+    fontSize: 16,
+    fontWeight: "600",
   },
   error: {
-    color: "#d33"
+    color: "#d33",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 10,
   },
   button: {
     backgroundColor: "#111827",
     borderRadius: 10,
     paddingVertical: 10,
-    alignItems: "center"
+    alignItems: "center",
+  },
+  formButtonSecondary: {
+    backgroundColor: "#ffffff",
+    borderColor: "#111827",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  formButtonSecondaryText: {
+    color: "#111827",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  rowButtonSecondary: {
+    backgroundColor: "#ffffff",
+    borderColor: "#111827",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+  },
+  rowButtonSecondaryText: {
+    color: "#111827",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  buttonDanger: {
+    backgroundColor: "#991b1b",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    flex: 1,
   },
   buttonText: {
     color: "#fff",
-    fontWeight: "600"
-  }
+    fontWeight: "600",
+  },
+  googleButton: {
+    backgroundColor: "#ffffff",
+    borderColor: "#2563eb",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  googleButtonText: {
+    color: "#1d4ed8",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });
