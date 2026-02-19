@@ -6,8 +6,10 @@ import { healthRouter } from "./routes/health.js";
 
 const app: Express = express();
 const corsOrigin = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean)
-  : true;
+	? process.env.CORS_ORIGIN.split(",")
+			.map((origin) => origin.trim())
+			.filter(Boolean)
+	: true;
 
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.all("/api/auth/*splat", toNodeHandler(auth));

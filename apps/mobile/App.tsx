@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+	ActivityIndicator,
+	Pressable,
+	SafeAreaView,
+	Text,
+	TextInput,
+	View,
 } from "react-native";
 import { authClient } from "./src/lib/auth";
 import { AuthProvider, useAuth } from "./src/context/auth-context";
@@ -16,289 +15,208 @@ const appScheme = process.env.EXPO_PUBLIC_APP_SCHEME ?? "everyday";
 const signedInRedirectUrl = `${appScheme}://auth/success`;
 
 function AppContent() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [screen, setScreen] = useState<"auth" | "home">("auth");
+	const [name, setName] = useState("");
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [actionError, setActionError] = useState<string | null>(null);
+	const [actionLoading, setActionLoading] = useState(false);
+	const [screen, setScreen] = useState<"auth" | "home">("auth");
 
-  const { user, isLoading, error: sessionError, refetch, signOut } = useAuth();
+	const { user, isLoading, error: sessionError, refetch, signOut } = useAuth();
 
-  useEffect(() => {
-    if (user) {
-      setScreen("home");
-      return;
-    }
+	useEffect(() => {
+		if (user) {
+			setScreen("home");
+			return;
+		}
 
-    setScreen("auth");
-  }, [user]);
+		setScreen("auth");
+	}, [user]);
 
-  const onSignUp = async () => {
-    setActionError(null);
-    setActionLoading(true);
+	const onSignUp = async () => {
+		setActionError(null);
+		setActionLoading(true);
 
-    const response = await authClient.signUp.email({
-      name,
-      email,
-      password,
-    });
+		const response = await authClient.signUp.email({
+			name,
+			email,
+			password,
+		});
 
-    if (response.error) {
-      setActionError(response.error.message ?? "Sign up failed");
-      setActionLoading(false);
-      return;
-    }
+		if (response.error) {
+			setActionError(response.error.message ?? "Sign up failed");
+			setActionLoading(false);
+			return;
+		}
 
-    await refetch();
-    setActionLoading(false);
-  };
+		await refetch();
+		setActionLoading(false);
+	};
 
-  const onSignIn = async () => {
-    setActionError(null);
-    setActionLoading(true);
+	const onSignIn = async () => {
+		setActionError(null);
+		setActionLoading(true);
 
-    const response = await authClient.signIn.email({
-      email,
-      password,
-    });
+		const response = await authClient.signIn.email({
+			email,
+			password,
+		});
 
-    if (response.error) {
-      setActionError(response.error.message ?? "Sign in failed");
-      setActionLoading(false);
-      return;
-    }
+		if (response.error) {
+			setActionError(response.error.message ?? "Sign in failed");
+			setActionLoading(false);
+			return;
+		}
 
-    await refetch();
-    setActionLoading(false);
-  };
+		await refetch();
+		setActionLoading(false);
+	};
 
-  const onSignOut = async () => {
-    setActionError(null);
-    setActionLoading(true);
+	const onSignOut = async () => {
+		setActionError(null);
+		setActionLoading(true);
 
-    const response = await signOut();
-    if (response.error) {
-      setActionError(response.error.message ?? "Sign out failed");
-      setActionLoading(false);
-      return;
-    }
+		const response = await signOut();
+		if (response.error) {
+			setActionError(response.error.message ?? "Sign out failed");
+			setActionLoading(false);
+			return;
+		}
 
-    await refetch();
-    setActionLoading(false);
-  };
+		await refetch();
+		setActionLoading(false);
+	};
 
-  const onGoogleSignIn = async () => {
-    setActionError(null);
-    setActionLoading(true);
+	const onGoogleSignIn = async () => {
+		setActionError(null);
+		setActionLoading(true);
 
-    const response = await authClient.signIn.social({
-      provider: "google",
-      callbackURL: signedInRedirectUrl,
-      newUserCallbackURL: signedInRedirectUrl,
-    });
+		const response = await authClient.signIn.social({
+			provider: "google",
+			callbackURL: signedInRedirectUrl,
+			newUserCallbackURL: signedInRedirectUrl,
+		});
 
-    if (response.error) {
-      setActionError(response.error.message ?? "Google sign in failed");
-      setActionLoading(false);
-      return;
-    }
+		if (response.error) {
+			setActionError(response.error.message ?? "Google sign in failed");
+			setActionLoading(false);
+			return;
+		}
 
-    await refetch();
-    setActionLoading(false);
-  };
+		await refetch();
+		setActionLoading(false);
+	};
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Everyday Auth</Text>
-        <Text style={styles.text}>Auth base: {apiBaseUrl}/api/auth</Text>
+	return (
+		<SafeAreaView className="flex-1 justify-center bg-slate-100 p-5">
+			<View className="gap-3 rounded-2xl bg-white p-5">
+				<Text className="text-3xl font-bold text-slate-900">Everyday Auth</Text>
+				<Text className="text-base text-slate-700">
+					Auth base: {apiBaseUrl}/api/auth
+				</Text>
 
-        {(isLoading || actionLoading) && <ActivityIndicator size="small" />}
+				{(isLoading || actionLoading) && <ActivityIndicator size="small" />}
 
-        {!!sessionError && (
-          <Text style={[styles.text, styles.error]}>
-            Session error: {sessionError.message ?? "Could not read session"}
-          </Text>
-        )}
+				{!!sessionError && (
+					<Text className="text-base text-red-700">
+						Session error: {sessionError.message ?? "Could not read session"}
+					</Text>
+				)}
 
-        {!!actionError && (
-          <Text style={[styles.text, styles.error]}>
-            Auth error: {actionError}
-          </Text>
-        )}
+				{!!actionError && (
+					<Text className="text-base text-red-700">
+						Auth error: {actionError}
+					</Text>
+				)}
 
-        {screen === "home" && user ? (
-          <View style={styles.section}>
-            <Text style={styles.text}>Signed in as</Text>
-            <Text style={styles.textStrong}>{user.email}</Text>
-            <Text style={styles.text}>userId: {user.id}</Text>
-          </View>
-        ) : (
-          <View style={styles.section}>
-            <TextInput
-              autoCapitalize="words"
-              placeholder="Name"
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-            />
-            <TextInput
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              placeholder="Email"
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-            />
-            <TextInput
-              autoCapitalize="none"
-              autoComplete="password"
-              secureTextEntry
-              placeholder="Password"
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-            />
+				{screen === "home" && user ? (
+					<View className="gap-2.5">
+						<Text className="text-base text-slate-700">Signed in as</Text>
+						<Text className="text-base font-semibold text-slate-900">
+							{user.email}
+						</Text>
+						<Text className="text-base text-slate-700">userId: {user.id}</Text>
+					</View>
+				) : (
+					<View className="gap-2.5">
+						<TextInput
+							autoCapitalize="words"
+							placeholder="Name"
+							className="rounded-xl border border-slate-300 px-3 py-2.5"
+							value={name}
+							onChangeText={setName}
+						/>
+						<TextInput
+							autoCapitalize="none"
+							autoComplete="email"
+							keyboardType="email-address"
+							placeholder="Email"
+							className="rounded-xl border border-slate-300 px-3 py-2.5"
+							value={email}
+							onChangeText={setEmail}
+						/>
+						<TextInput
+							autoCapitalize="none"
+							autoComplete="password"
+							secureTextEntry
+							placeholder="Password"
+							className="rounded-xl border border-slate-300 px-3 py-2.5"
+							value={password}
+							onChangeText={setPassword}
+						/>
 
-            <Pressable style={styles.button} onPress={onSignUp}>
-              <Text style={styles.buttonText}>Sign up with email</Text>
-            </Pressable>
-            <Pressable style={styles.formButtonSecondary} onPress={onSignIn}>
-              <Text style={styles.formButtonSecondaryText}>
-                Sign in with email
-              </Text>
-            </Pressable>
-            <Pressable style={styles.googleButton} onPress={onGoogleSignIn}>
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
-            </Pressable>
-          </View>
-        )}
+						<Pressable
+							className="items-center rounded-xl bg-slate-900 py-2.5"
+							onPress={onSignUp}
+						>
+							<Text className="font-semibold text-white">
+								Sign up with email
+							</Text>
+						</Pressable>
+						<Pressable
+							className="items-center justify-center rounded-xl border border-slate-900 bg-white py-2.5"
+							onPress={onSignIn}
+						>
+							<Text className="text-base font-semibold text-slate-900">
+								Sign in with email
+							</Text>
+						</Pressable>
+						<Pressable
+							className="items-center justify-center rounded-xl border border-blue-600 bg-white py-2.5"
+							onPress={onGoogleSignIn}
+						>
+							<Text className="text-base font-semibold text-blue-700">
+								Continue with Google
+							</Text>
+						</Pressable>
+					</View>
+				)}
 
-        <View style={styles.row}>
-          <Pressable
-            style={styles.rowButtonSecondary}
-            onPress={() => refetch()}
-          >
-            <Text style={styles.rowButtonSecondaryText}>Refresh session</Text>
-          </Pressable>
-          <Pressable style={styles.buttonDanger} onPress={onSignOut}>
-            <Text style={styles.buttonText}>Sign out</Text>
-          </Pressable>
-        </View>
-      </View>
-    </SafeAreaView>
-  );
+				<View className="flex-row gap-2.5">
+					<Pressable
+						className="flex-1 items-center justify-center rounded-xl border border-slate-900 bg-white py-2.5"
+						onPress={() => refetch()}
+					>
+						<Text className="text-base font-semibold text-slate-900">
+							Refresh session
+						</Text>
+					</Pressable>
+					<Pressable
+						className="flex-1 items-center rounded-xl bg-red-800 py-2.5"
+						onPress={onSignOut}
+					>
+						<Text className="font-semibold text-white">Sign out</Text>
+					</Pressable>
+				</View>
+			</View>
+		</SafeAreaView>
+	);
 }
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  );
+	return (
+		<AuthProvider>
+			<AppContent />
+		</AuthProvider>
+	);
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f4f6f8",
-    justifyContent: "center",
-    padding: 20,
-  },
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 20,
-    gap: 12,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  section: {
-    gap: 10,
-  },
-  text: {
-    fontSize: 16,
-  },
-  textStrong: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  error: {
-    color: "#d33",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  row: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  button: {
-    backgroundColor: "#111827",
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  formButtonSecondary: {
-    backgroundColor: "#ffffff",
-    borderColor: "#111827",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  formButtonSecondaryText: {
-    color: "#111827",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  rowButtonSecondary: {
-    backgroundColor: "#ffffff",
-    borderColor: "#111827",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-  },
-  rowButtonSecondaryText: {
-    color: "#111827",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  buttonDanger: {
-    backgroundColor: "#991b1b",
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
-    flex: 1,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-  googleButton: {
-    backgroundColor: "#ffffff",
-    borderColor: "#2563eb",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  googleButtonText: {
-    color: "#1d4ed8",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-});

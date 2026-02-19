@@ -124,3 +124,17 @@ pnpm dev:full
 ```
 
 This starts Postgres/Adminer, then starts API + mobile dev servers.
+
+## Linting and formatting (Biome)
+
+Run from repo root:
+
+```bash
+pnpm lint
+pnpm lint:fix
+pnpm format
+pnpm format:check
+pnpm format:write
+pnpm check
+pnpm check:fix
+```

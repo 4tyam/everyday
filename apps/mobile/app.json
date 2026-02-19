@@ -1,10 +1,13 @@
 {
-  "expo": {
-    "name": "Everyday",
-    "slug": "everyday",
-    "scheme": "everyday",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "userInterfaceStyle": "automatic"
-  }
+	"expo": {
+		"name": "Everyday",
+		"slug": "everyday",
+		"scheme": "everyday",
+		"version": "1.0.0",
+		"orientation": "portrait",
+		"userInterfaceStyle": "automatic",
+		"web": {
+			"bundler": "metro"
+		}
+	}
 }
