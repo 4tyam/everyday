@@ -1,33 +1,144 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { addMemoryUris, listMemoriesByDay, listMemoriesByMonth } from "./repository";
+import type { CapturedMemoryAsset } from "./capture-memory-images";
 import type { DayKey, DayMemory, DayMemoryMap } from "./types";
 
-function createMemory(uri: string): DayMemory {
+type UseDayMemoriesParams = {
+	userId?: string | null;
+	visibleMonthKey: string;
+	todayDayKey: DayKey;
+	previousDayKey: DayKey;
+};
+
+function monthQueryKey(userId: string, monthKey: string) {
+	return ["memories", "month", userId, monthKey] as const;
+}
+
+function dayQueryKey(userId: string, dayKey: DayKey) {
+	return ["memories", "day", userId, dayKey] as const;
+}
+
+function getMonthFromDayKey(dayKey: DayKey) {
+	return dayKey.slice(0, 7);
+}
+
+function upsertDayInMap(
+	current: DayMemoryMap | undefined,
+	dayKey: DayKey,
+	dayMemories: DayMemory[],
+): DayMemoryMap {
 	return {
-		id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-		uri,
-		createdAt: Date.now(),
+		...(current ?? {}),
+		[dayKey]: dayMemories,
 	};
 }
 
-export function useDayMemories() {
-	const [memoriesByDay, setMemoriesByDay] = useState<DayMemoryMap>({});
+export function useDayMemories({
+	userId,
+	visibleMonthKey,
+	todayDayKey,
+	previousDayKey,
+}: UseDayMemoriesParams) {
+	const queryClient = useQueryClient();
+	const isEnabled = Boolean(userId);
+
+	const monthMemoriesQuery = useQuery({
+		queryKey: userId ? monthQueryKey(userId, visibleMonthKey) : ["memories", "month"],
+		queryFn: () => listMemoriesByMonth(userId as string, visibleMonthKey),
+		enabled: isEnabled,
+	});
+
+	const todayMemoriesQuery = useQuery({
+		queryKey: userId ? dayQueryKey(userId, todayDayKey) : ["memories", "day", "today"],
+		queryFn: () => listMemoriesByDay(userId as string, todayDayKey),
+		enabled: isEnabled,
+	});
+
+	const previousMemoriesQuery = useQuery({
+		queryKey: userId
+			? dayQueryKey(userId, previousDayKey)
+			: ["memories", "day", "previous"],
+		queryFn: () => listMemoriesByDay(userId as string, previousDayKey),
+		enabled: isEnabled,
+	});
+
+	const memoriesByDay = useMemo(() => {
+		const map: DayMemoryMap = {
+			...(monthMemoriesQuery.data ?? {}),
+		};
+
+		if (todayMemoriesQuery.data) {
+			map[todayDayKey] = todayMemoriesQuery.data;
+		}
+		if (previousMemoriesQuery.data) {
+			map[previousDayKey] = previousMemoriesQuery.data;
+		}
+
+		return map;
+	}, [
+		monthMemoriesQuery.data,
+		previousDayKey,
+		previousMemoriesQuery.data,
+		todayDayKey,
+		todayMemoriesQuery.data,
+	]);
+
+	const addMutation = useMutation({
+		mutationFn: async (params: {
+			dayKey: DayKey;
+			assets: CapturedMemoryAsset[];
+		}) => {
+			if (!userId) {
+				return [] as DayMemory[];
+			}
+			return addMemoryUris({
+				userId,
+				dayKey: params.dayKey,
+				sourceAssets: params.assets,
+			});
+		},
+		onSuccess: (
+			addedMemories: DayMemory[],
+			vars: { dayKey: DayKey; assets: CapturedMemoryAsset[] },
+		) => {
+			if (!userId || addedMemories.length === 0) {
+				return;
+			}
+
+			queryClient.setQueryData<DayMemory[]>(
+				dayQueryKey(userId, vars.dayKey),
+				(current: DayMemory[] | undefined) => [...(current ?? []), ...addedMemories],
+			);
+
+			const monthKey = getMonthFromDayKey(vars.dayKey);
+			queryClient.setQueryData<DayMemoryMap>(
+				monthQueryKey(userId, monthKey),
+				(current: DayMemoryMap | undefined) => {
+					const existingDay = current?.[vars.dayKey] ?? [];
+					return upsertDayInMap(current, vars.dayKey, [
+						...existingDay,
+						...addedMemories,
+					]);
+				},
+			);
+		},
+	});
 
 	const getMemories = useCallback(
 		(dayKey: DayKey): DayMemory[] => memoriesByDay[dayKey] ?? [],
 		[memoriesByDay],
 	);
 
-	const addMemories = useCallback((dayKey: DayKey, uris: string[]) => {
-		if (uris.length === 0) {
-			return;
-		}
-
-		setMemoriesByDay((current) => {
-			const existing = current[dayKey] ?? [];
-			const next = [...existing, ...uris.map(createMemory)];
-			return { ...current, [dayKey]: next };
-		});
-	}, []);
+	const addMemories = useCallback(
+		(dayKey: DayKey, assets: CapturedMemoryAsset[]) => {
+			if (!userId || assets.length === 0) {
+				return;
+			}
+			addMutation.mutate({ dayKey, assets });
+		},
+		[addMutation, userId],
+	);
 
 	const getDotCount = useCallback(
 		(dayKey: DayKey): number => {
@@ -58,5 +169,9 @@ export function useDayMemories() {
 		getMemories,
 		memoriesByDay,
 		totalMemories,
+		isLoading:
+			monthMemoriesQuery.isLoading ||
+			todayMemoriesQuery.isLoading ||
+			previousMemoriesQuery.isLoading,
 	};
 }

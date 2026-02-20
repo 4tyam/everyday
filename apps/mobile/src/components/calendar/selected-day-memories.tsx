@@ -8,6 +8,7 @@ import {
 	View,
 	useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DayMemory } from "../../features/memories/types";
 
 type SelectedDayMemoriesProps = {
@@ -26,6 +27,8 @@ type SelectedDayMemoriesProps = {
 	onPullDown?: () => void;
 };
 
+const gridGap = 10;
+
 function mockColorFromUri(uri: string): string {
 	let hash = 0;
 	for (let i = 0; i < uri.length; i += 1) {
@@ -36,14 +39,18 @@ function mockColorFromUri(uri: string): string {
 	return `hsl(${hue}, 55%, 78%)`;
 }
 
-function MemoryThumbnail({ memory }: { memory: DayMemory }) {
+function MemoryThumbnail({
+	memory,
+}: {
+	memory: DayMemory;
+}) {
 	if (memory.uri.startsWith("mock://")) {
 		return (
 			<View
-				className="mb-2.5 items-center justify-center rounded-[10px]"
+				className="items-center justify-center rounded-[10px]"
 				style={{
-					width: 102,
-					height: 102,
+					width: "100%",
+					aspectRatio: 1,
 					backgroundColor: mockColorFromUri(memory.uri),
 				}}
 			>
@@ -53,16 +60,25 @@ function MemoryThumbnail({ memory }: { memory: DayMemory }) {
 	}
 
 	return (
-		<Image
-			source={{ uri: memory.uri }}
+		<View
 			style={{
-				width: 102,
-				height: 102,
-				marginBottom: 10,
-				borderRadius: 10,
-				backgroundColor: "#e5e5ea",
+				width: "100%",
+				aspectRatio: 1,
+				borderRadius: 12,
+				overflow: "hidden",
 			}}
-		/>
+		>
+			<Image
+				source={{ uri: memory.uri }}
+				resizeMode="cover"
+				style={{
+					width: "100%",
+					height: "100%",
+					borderRadius: 12,
+					transform: [{ scale: 1.08 }],
+				}}
+			/>
+		</View>
 	);
 }
 
@@ -82,9 +98,10 @@ export function SelectedDayMemories({
 	onPullDown,
 }: SelectedDayMemoriesProps) {
 	const { height } = useWindowDimensions();
+	const insets = useSafeAreaInsets();
 	const memoriesViewportHeight =
 		viewportHeight ?? Math.max(260, Math.min(560, height * 0.66));
-	const tabClearanceInset = bottomInset;
+	const tabClearanceInset = Math.max(bottomInset, insets.bottom + 120);
 	const hasTriggeredScrollDownRef = useRef(false);
 	const hasTriggeredPullDownRef = useRef(false);
 	const hasTriggeredHeaderSwipeRef = useRef(false);
@@ -177,6 +194,7 @@ export function SelectedDayMemories({
 			{memories.length > 0 ? (
 				<ScrollView
 					showsVerticalScrollIndicator={false}
+					alwaysBounceVertical={false}
 					style={{ height: memoriesViewportHeight }}
 					contentContainerStyle={{ paddingBottom: tabClearanceInset }}
 					scrollIndicatorInsets={{ bottom: tabClearanceInset }}
@@ -213,7 +231,12 @@ export function SelectedDayMemories({
 				>
 					<View className="flex-row flex-wrap justify-between">
 						{memories.map((memory) => (
-							<MemoryThumbnail key={memory.id} memory={memory} />
+							<View
+								key={memory.id}
+								style={{ width: "48.5%", marginBottom: gridGap }}
+							>
+								<MemoryThumbnail memory={memory} />
+							</View>
 						))}
 					</View>
 				</ScrollView>

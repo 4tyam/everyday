@@ -1,8 +1,8 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 type DayCellProps = {
 	day: number;
-	memoryPreviewUris: string[];
+	memoryPreviewColors: string[];
 	hasMemories: boolean;
 	isSelected: boolean;
 	isToday: boolean;
@@ -12,19 +12,9 @@ type DayCellProps = {
 	selectedDayBackgroundColor: string;
 };
 
-function mockColorFromUri(uri: string): string {
-	let hash = 0;
-	for (let i = 0; i < uri.length; i += 1) {
-		hash = (hash << 5) - hash + uri.charCodeAt(i);
-		hash |= 0;
-	}
-	const hue = Math.abs(hash) % 360;
-	return `hsl(${hue}, 55%, 72%)`;
-}
-
 export function DayCell({
 	day,
-	memoryPreviewUris,
+	memoryPreviewColors,
 	hasMemories,
 	isSelected,
 	isToday,
@@ -33,7 +23,7 @@ export function DayCell({
 	todayCircleColor,
 	selectedDayBackgroundColor,
 }: DayCellProps) {
-	const showDots = memoryPreviewUris.length > 0;
+	const showDots = memoryPreviewColors.length > 0;
 	const isDisabled = !hasMemories;
 	const isHighlighted = isToday || isSelected;
 	const dotSize = isHighlighted ? 4 : 5;
@@ -88,32 +78,20 @@ export function DayCell({
 					style={{ height: 7, marginTop: dotTopMargin }}
 				>
 					{showDots
-						? memoryPreviewUris.slice(0, 3).map((uri, index) => {
-								if (uri.startsWith("mock://")) {
-									return (
-										<View
-											key={`dot-${day}-${index}`}
-											className="rounded-full"
-											style={{
-												width: dotSize,
-												height: dotSize,
-												marginHorizontal: dotHorizontalMargin,
-												backgroundColor: mockColorFromUri(uri),
-											}}
-										/>
-									);
-								}
-
+						? memoryPreviewColors.slice(0, 3).map((color, index) => {
+								const safeColor =
+									typeof color === "string" && color.trim().length > 0
+										? color
+										: todayCircleColor;
 								return (
-									<Image
+									<View
 										key={`dot-${day}-${index}`}
-										source={{ uri }}
+										className="rounded-full"
 										style={{
 											width: dotSize,
 											height: dotSize,
 											marginHorizontal: dotHorizontalMargin,
-											borderRadius: dotSize / 2,
-											backgroundColor: todayCircleColor,
+											backgroundColor: safeColor,
 										}}
 									/>
 								);

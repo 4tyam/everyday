@@ -15,6 +15,7 @@ import CalendarToIcon from "../assets/icons/calendar2.svg";
 import { DayCell } from "./calendar/day-cell";
 import { SelectedDayMemories } from "./calendar/selected-day-memories";
 import { useAuth } from "../context/auth-context";
+import { captureMemoryImages } from "../features/memories/capture-memory-images";
 import type { DayKey } from "../features/memories/types";
 import { useDayMemories } from "../features/memories/use-day-memories";
 import { getTheme } from "../theme/colors";
@@ -150,14 +151,6 @@ function startOfLocalDay(date: Date): Date {
 	return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function isSameLocalDay(a: Date, b: Date): boolean {
-	return (
-		a.getFullYear() === b.getFullYear() &&
-		a.getMonth() === b.getMonth() &&
-		a.getDate() === b.getDate()
-	);
-}
-
 function formatMemoryHeaderDateLabel(
 	targetDate: Date,
 	todayDate: Date,
@@ -201,6 +194,16 @@ function formatMemoryHeaderDateLabel(
 	});
 }
 
+function fallbackDotColorFromUri(uri: string): string {
+	let hash = 0;
+	for (let index = 0; index < uri.length; index += 1) {
+		hash = (hash << 5) - hash + uri.charCodeAt(index);
+		hash |= 0;
+	}
+	const hue = Math.abs(hash) % 360;
+	return `hsl(${hue}, 58%, 54%)`;
+}
+
 export function ImageCalendar() {
 	const { user, session } = useAuth();
 	const [now, setNow] = useState(() => new Date());
@@ -232,7 +235,6 @@ export function ImageCalendar() {
 	const [selectedWeekIndex, setSelectedWeekIndex] = useState<number | null>(
 		null,
 	);
-	const { addMemories, getMemories } = useDayMemories();
 	const colorScheme = useColorScheme();
 	const theme = getTheme(colorScheme);
 	const todayDate = now;
@@ -253,6 +255,12 @@ export function ImageCalendar() {
 	const selectedDayBackgroundColor = filledBlueBackground;
 	const calendarIconColor =
 		colorScheme === "dark" ? "#ffffff" : theme.textPrimary;
+	const { addMemories, getMemories } = useDayMemories({
+		userId: user?.id ?? null,
+		visibleMonthKey: visibleMonth,
+		todayDayKey: todayKey,
+		previousDayKey,
+	});
 	const { year: visibleYear, month: visibleMonthNumber } =
 		parseMonthKey(visibleMonth);
 	const { year: minimumYear, month: minimumMonthNumber } =
@@ -267,6 +275,10 @@ export function ImageCalendar() {
 		new Animated.Value(monthWeekRowHeight * 5),
 	).current;
 	const skipNextMonthAnimationRef = useRef(false);
+	const pendingSelectedDayAfterMonthChangeRef = useRef<{
+		day: number;
+		weekIndex: number;
+	} | null>(null);
 	const overviewScrollRef = useRef<ScrollView | null>(null);
 	const monthOffsetsRef = useRef<Record<string, number>>({});
 	const yearOffsetsRef = useRef<Record<number, number>>({});
@@ -315,6 +327,18 @@ export function ImageCalendar() {
 	useEffect(() => {
 		const { year, month } = parseMonthKey(visibleMonth);
 		const monthGridRows = buildMonthWeeks(year, month).length;
+		const pendingSelection = pendingSelectedDayAfterMonthChangeRef.current;
+		if (pendingSelection) {
+			const nextWeekOffset = -pendingSelection.weekIndex * monthWeekRowHeight;
+			setSelectedDay(pendingSelection.day);
+			setSelectedWeekIndex(pendingSelection.weekIndex);
+			selectedWeekOffset.setValue(nextWeekOffset);
+			selectedContentProgress.setValue(1);
+			headerResetProgress.setValue(1);
+			monthGridHeight.setValue(monthWeekRowHeight);
+			pendingSelectedDayAfterMonthChangeRef.current = null;
+			return;
+		}
 		setSelectedDay(null);
 		setSelectedWeekIndex(null);
 		selectedWeekOffset.setValue(0);
@@ -328,6 +352,53 @@ export function ImageCalendar() {
 		selectedWeekOffset,
 		visibleMonth,
 	]);
+
+	const navigateSelectedDayBy = (delta: 1 | -1) => {
+		if (!selectedDay || selectedWeekIndex === null) {
+			return;
+		}
+
+		const activeWeek = visibleMonthWeeks[selectedWeekIndex];
+		if (!activeWeek) {
+			return;
+		}
+		const currentDayIndex = activeWeek.findIndex((day) => day === selectedDay);
+		if (currentDayIndex < 0) {
+			return;
+		}
+
+		let targetDay: number | null = null;
+		for (
+			let index = currentDayIndex + delta;
+			index >= 0 && index < activeWeek.length;
+			index += delta
+		) {
+			const candidateDay = activeWeek[index];
+			if (!candidateDay) {
+				continue;
+			}
+			const candidateDayKey = toDayKey(visibleMonth, candidateDay);
+			const isCandidateToday = candidateDayKey === todayKey;
+			const candidateHasMemories = getMemories(candidateDayKey).length > 0;
+			const canOpenCandidate = isCandidateToday || candidateHasMemories;
+			if (canOpenCandidate) {
+				targetDay = candidateDay;
+				break;
+			}
+		}
+
+		if (!targetDay) {
+			return;
+		}
+
+		setSelectedDay(targetDay);
+		Animated.timing(selectedContentProgress, {
+			toValue: 1,
+			duration: 180,
+			easing: Easing.out(Easing.quad),
+			useNativeDriver: true,
+		}).start();
+	};
 
 	const applyMonthChange = (nextMonth: string, direction: 1 | -1 | 0) => {
 		if (
@@ -352,18 +423,26 @@ export function ImageCalendar() {
 					Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
 				onPanResponderRelease: (_, gestureState) => {
 					if (gestureState.dx < -40) {
+						if (selectedDay) {
+							navigateSelectedDayBy(1);
+							return;
+						}
 						// Left swipe -> next month.
 						changeMonthBy(1);
 						return;
 					}
 
 					if (gestureState.dx > 40) {
+						if (selectedDay) {
+							navigateSelectedDayBy(-1);
+							return;
+						}
 						// Right swipe -> previous month.
 						changeMonthBy(-1);
 					}
 				},
 			}),
-		[maximumMonth, minimumMonth, visibleMonth],
+		[selectedDay, maximumMonth, minimumMonth, visibleMonth],
 	);
 
 	const onOpenYearOverview = () => {
@@ -581,27 +660,38 @@ export function ImageCalendar() {
 		onResetSelectedDay();
 	};
 
-	const onAddMemoryPressForDay = (dayKey: DayKey) => {
-		const mockUri = `mock://${dayKey}-${Date.now()}`;
-		addMemories(dayKey, [mockUri]);
+	const onAddMemoryPressForDay = async (dayKey: DayKey) => {
+		const imageAssets = await captureMemoryImages();
+		if (imageAssets.length === 0) {
+			return;
+		}
+		addMemories(dayKey, imageAssets);
 	};
 
-	const onAddTodayMemoryPress = () => onAddMemoryPressForDay(currentDayKey);
-	const onAddPreviousDayMemoryPress = () =>
-		onAddMemoryPressForDay(previousDayKey);
+	const onAddTodayMemoryPress = () => {
+		void onAddMemoryPressForDay(currentDayKey);
+	};
+	const onAddPreviousDayMemoryPress = () => {
+		void onAddMemoryPressForDay(previousDayKey);
+	};
 
 	const shouldShowMemoriesPanel =
-		selectedDay !== null || currentDayMemories.length > 0;
+		selectedDay !== null ||
+		(visibleYear === todayYear &&
+			visibleMonthNumber === todayMonth &&
+			currentDayMemories.length > 0);
 	const activeMemories = selectedDay ? selectedDayMemories : currentDayMemories;
 	const activeDateLabel =
 		selectedDay && selectedDate
 			? formatMemoryHeaderDateLabel(selectedDate, todayDate)
 			: "Today";
+	const isViewingCurrentMonth =
+		visibleYear === todayYear && visibleMonthNumber === todayMonth;
 	const canAddToPreviousDay =
 		isPreviousDayUploadEnabled && previousDayMemories.length > 0;
 	const activeCanAddMemory = selectedDay
 		? isSelectedDayToday || (isSelectedDayPrevious && canAddToPreviousDay)
-		: true;
+		: isViewingCurrentMonth;
 	const activeBottomInset = selectedDay ? 110 : 170;
 	const activeViewportHeight = selectedDay ? undefined : 320;
 	const onActiveScrollDown = onCollapseToWeekView;
@@ -912,20 +1002,24 @@ export function ImageCalendar() {
 												const isSelected =
 													selectedDay === day &&
 													selectedWeekIndex === weekIndex;
-												const dayMemories = getMemories(
-													toDayKey(visibleMonth, day),
+											const dayMemories = getMemories(
+												toDayKey(visibleMonth, day),
+											);
+											const hasMemories = dayMemories.length > 0;
+											const canOpenDay = isToday || hasMemories;
+											const dayMemoryPreviewColors = dayMemories
+												.slice(0, 3)
+												.map(
+													(memory) =>
+														memory.dominantColor ??
+														fallbackDotColorFromUri(memory.uri),
 												);
-												const hasMemories = dayMemories.length > 0;
-												const canOpenDay = isToday || hasMemories;
-												const dayMemoryPreviewUris = dayMemories
-													.slice(-3)
-													.map((memory) => memory.uri);
-												return (
-													<DayCell
-														key={`${visibleMonth}-day-${weekIndex}-${dayIndex}`}
-														day={day}
-														memoryPreviewUris={dayMemoryPreviewUris}
-														hasMemories={canOpenDay}
+											return (
+												<DayCell
+													key={`${visibleMonth}-day-${weekIndex}-${dayIndex}`}
+													day={day}
+													memoryPreviewColors={dayMemoryPreviewColors}
+													hasMemories={canOpenDay}
 														isSelected={isSelected}
 														isToday={isToday}
 														textColor={theme.textPrimary}
@@ -980,7 +1074,7 @@ export function ImageCalendar() {
 										addButtonIconColor={actionBlue}
 									/>
 								</Animated.View>
-							) : (
+							) : isViewingCurrentMonth ? (
 								<View className="items-center pt-10">
 									<Pressable
 										className="h-12 w-12 items-center justify-center rounded-full active:opacity-70"
@@ -995,7 +1089,7 @@ export function ImageCalendar() {
 										</Text>
 									</Pressable>
 								</View>
-							)}
+								) : null}
 						</Animated.View>
 					</>
 				)}
