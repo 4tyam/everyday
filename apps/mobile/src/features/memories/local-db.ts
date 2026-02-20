@@ -59,10 +59,12 @@ async function setupSchema(db: SQLite.SQLiteDatabase) {
 
 export async function getMemoriesDb() {
 	if (!dbPromise) {
-		dbPromise = SQLite.openDatabaseAsync("everyday-memories.db").then(async (db: any) => {
-			await setupSchema(db);
-			return db;
-		});
+		dbPromise = SQLite.openDatabaseAsync("everyday-memories.db").then(
+			async (db: any) => {
+				await setupSchema(db);
+				return db;
+			},
+		);
 	}
 
 	return dbPromise;

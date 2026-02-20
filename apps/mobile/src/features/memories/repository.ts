@@ -35,7 +35,11 @@ function createId() {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-async function enqueueUpload(memoryId: string, userId: string, createdAt: number) {
+async function enqueueUpload(
+	memoryId: string,
+	userId: string,
+	createdAt: number,
+) {
 	const db = await getMemoriesDb();
 	await db.runAsync(
 		`INSERT INTO memory_sync_queue (

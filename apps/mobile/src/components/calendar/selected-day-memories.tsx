@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useState, useRef } from "react";
 import {
 	Image,
 	PanResponder,
@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DayMemory } from "../../features/memories/types";
+import { ImageViewer } from "./image-viewer";
 
 type SelectedDayMemoriesProps = {
 	dateLabel: string;
@@ -25,6 +26,7 @@ type SelectedDayMemoriesProps = {
 	addButtonIconColor: string;
 	onScrollDown?: () => void;
 	onPullDown?: () => void;
+	onImageViewerVisibilityChange?: (visible: boolean) => void;
 };
 
 const gridGap = 10;
@@ -96,6 +98,7 @@ export function SelectedDayMemories({
 	addButtonIconColor,
 	onScrollDown,
 	onPullDown,
+	onImageViewerVisibilityChange,
 }: SelectedDayMemoriesProps) {
 	const { height } = useWindowDimensions();
 	const insets = useSafeAreaInsets();
@@ -103,8 +106,11 @@ export function SelectedDayMemories({
 		viewportHeight ?? Math.max(260, Math.min(560, height * 0.66));
 	const tabClearanceInset = Math.max(bottomInset, insets.bottom + 120);
 	const hasTriggeredScrollDownRef = useRef(false);
-	const hasTriggeredPullDownRef = useRef(false);
 	const hasTriggeredHeaderSwipeRef = useRef(false);
+	const scrollOffsetYRef = useRef(0);
+	const dragStartOffsetYRef = useRef(0);
+	const [isViewerOpen, setIsViewerOpen] = useState(false);
+	const [viewerIndex, setViewerIndex] = useState(0);
 	const headerPanResponder = useRef(
 		PanResponder.create({
 			onStartShouldSetPanResponderCapture: () => false,
@@ -129,8 +135,10 @@ export function SelectedDayMemories({
 				}
 
 				if (gestureState.dy > 12 && onPullDown) {
-					hasTriggeredHeaderSwipeRef.current = true;
-					onPullDown();
+					if (scrollOffsetYRef.current <= 2) {
+						hasTriggeredHeaderSwipeRef.current = true;
+						onPullDown();
+					}
 				}
 			},
 			onPanResponderRelease: (_, gestureState) => {
@@ -142,7 +150,8 @@ export function SelectedDayMemories({
 						onScrollDown();
 					} else if (
 						(gestureState.dy > 12 || gestureState.vy > 0.35) &&
-						onPullDown
+						onPullDown &&
+						scrollOffsetYRef.current <= 2
 					) {
 						onPullDown();
 					}
@@ -198,15 +207,26 @@ export function SelectedDayMemories({
 					style={{ height: memoriesViewportHeight }}
 					contentContainerStyle={{ paddingBottom: tabClearanceInset }}
 					scrollIndicatorInsets={{ bottom: tabClearanceInset }}
+					onScrollBeginDrag={(event) => {
+						dragStartOffsetYRef.current = Math.max(
+							0,
+							event.nativeEvent.contentOffset.y,
+						);
+					}}
+					onScrollEndDrag={(event) => {
+						const endOffsetY = event.nativeEvent.contentOffset.y;
+						const startedAtTop = dragStartOffsetYRef.current <= 2;
+						const pulledDownFromTop = endOffsetY < -18;
+						if (onPullDown && startedAtTop && pulledDownFromTop) {
+							onPullDown();
+						}
+					}}
 					onScroll={(event) => {
 						const offsetY = event.nativeEvent.contentOffset.y;
+						scrollOffsetYRef.current = Math.max(0, offsetY);
 
 						if (offsetY <= 2) {
 							hasTriggeredScrollDownRef.current = false;
-						}
-
-						if (offsetY >= -2) {
-							hasTriggeredPullDownRef.current = false;
 						}
 
 						if (
@@ -217,30 +237,39 @@ export function SelectedDayMemories({
 							hasTriggeredScrollDownRef.current = true;
 							onScrollDown();
 						}
-
-						if (
-							onPullDown &&
-							offsetY < -26 &&
-							!hasTriggeredPullDownRef.current
-						) {
-							hasTriggeredPullDownRef.current = true;
-							onPullDown();
-						}
 					}}
 					scrollEventThrottle={16}
 				>
 					<View className="flex-row flex-wrap justify-between">
-						{memories.map((memory) => (
+						{memories.map((memory, index) => (
 							<View
 								key={memory.id}
 								style={{ width: "48.5%", marginBottom: gridGap }}
 							>
-								<MemoryThumbnail memory={memory} />
+								<Pressable
+									onPress={() => {
+										setViewerIndex(index);
+										setIsViewerOpen(true);
+										onImageViewerVisibilityChange?.(true);
+									}}
+								>
+									<MemoryThumbnail memory={memory} />
+								</Pressable>
 							</View>
 						))}
 					</View>
 				</ScrollView>
 			) : null}
+
+			<ImageViewer
+				visible={isViewerOpen}
+				memories={memories}
+				initialIndex={viewerIndex}
+				onClose={() => {
+					setIsViewerOpen(false);
+					onImageViewerVisibilityChange?.(false);
+				}}
+			/>
 		</View>
 	);
 }

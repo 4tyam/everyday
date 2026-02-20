@@ -43,7 +43,10 @@ async function pickMemorySource(): Promise<MemorySource | null> {
 async function captureFromCamera(): Promise<CapturedMemoryAsset[]> {
 	const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
 	if (cameraPermission.status !== "granted") {
-		Alert.alert("Camera access needed", "Please allow camera access to add memories.");
+		Alert.alert(
+			"Camera access needed",
+			"Please allow camera access to add memories.",
+		);
 		return [];
 	}
 
@@ -74,7 +77,8 @@ async function captureFromCamera(): Promise<CapturedMemoryAsset[]> {
 }
 
 async function pickFromGallery(): Promise<CapturedMemoryAsset[]> {
-	const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+	const mediaPermission =
+		await ImagePicker.requestMediaLibraryPermissionsAsync();
 	if (mediaPermission.status !== "granted") {
 		Alert.alert(
 			"Photos access needed",

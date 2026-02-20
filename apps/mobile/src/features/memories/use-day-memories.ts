@@ -1,6 +1,10 @@
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addMemoryUris, listMemoriesByDay, listMemoriesByMonth } from "./repository";
+import {
+	addMemoryUris,
+	listMemoriesByDay,
+	listMemoriesByMonth,
+} from "./repository";
 import type { CapturedMemoryAsset } from "./capture-memory-images";
 import type { DayKey, DayMemory, DayMemoryMap } from "./types";
 
@@ -44,13 +48,17 @@ export function useDayMemories({
 	const isEnabled = Boolean(userId);
 
 	const monthMemoriesQuery = useQuery({
-		queryKey: userId ? monthQueryKey(userId, visibleMonthKey) : ["memories", "month"],
+		queryKey: userId
+			? monthQueryKey(userId, visibleMonthKey)
+			: ["memories", "month"],
 		queryFn: () => listMemoriesByMonth(userId as string, visibleMonthKey),
 		enabled: isEnabled,
 	});
 
 	const todayMemoriesQuery = useQuery({
-		queryKey: userId ? dayQueryKey(userId, todayDayKey) : ["memories", "day", "today"],
+		queryKey: userId
+			? dayQueryKey(userId, todayDayKey)
+			: ["memories", "day", "today"],
 		queryFn: () => listMemoriesByDay(userId as string, todayDayKey),
 		enabled: isEnabled,
 	});
@@ -108,7 +116,10 @@ export function useDayMemories({
 
 			queryClient.setQueryData<DayMemory[]>(
 				dayQueryKey(userId, vars.dayKey),
-				(current: DayMemory[] | undefined) => [...(current ?? []), ...addedMemories],
+				(current: DayMemory[] | undefined) => [
+					...(current ?? []),
+					...addedMemories,
+				],
 			);
 
 			const monthKey = getMonthFromDayKey(vars.dayKey);

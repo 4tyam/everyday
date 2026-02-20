@@ -14,7 +14,9 @@ function hashToColor(value: string): string {
 	return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-function pickColorFromNativeResult(result: Record<string, unknown>): string | null {
+function pickColorFromNativeResult(
+	result: Record<string, unknown>,
+): string | null {
 	const candidates = [
 		result.dominant,
 		result.primary,

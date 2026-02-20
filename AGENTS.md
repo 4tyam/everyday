@@ -16,7 +16,6 @@ pnpm monorepo (`pnpm@9`, Node `>=20`) with workspaces in `apps/*` and `packages/
   - Expo plugin enabled
 - Drizzle schema files:
   - Better Auth schema: `src/db/auth-schema.ts`
-  - Legacy app schema: `src/db/schema.ts` (legacy `users` table removed)
 - Migrations in `apps/api/drizzle`.
 
 ### `apps/mobile`
@@ -34,7 +33,17 @@ pnpm monorepo (`pnpm@9`, Node `>=20`) with workspaces in `apps/*` and `packages/
   - Tapping a day collapses to week view (single row) with that day selected.
   - Back arrow or iOS left-edge back swipe in week view resets to month view.
   - In month view, scrolling/swiping up in the memories area collapses to week view (today row).
-  - In week view, pulling/swiping down from memories area resets to full month view.
+  - In week view, horizontal swipe moves between days in the same visible week row (not months).
+  - Week-day swipe only lands on selectable days (`today` or days with memories); grayed days are skipped; no valid target means no-op.
+  - In week view, pulling/swiping down resets to full month view only when the memories list is already at top and user pulls down from top.
+  - Bottom memories panel should only show "Today" memories in the current month; browsing other months should not show current-day memories by default.
+  - "Today" day key is local-date based (not UTC) and refreshes on interval to avoid day-boundary mismatch.
+  - Memory dots under day cells use stored `dominantColor` per memory (fallback hash color from URI), typically first up to 3 memories.
+  - Image viewer exists at `apps/mobile/src/components/calendar/image-viewer.tsx`:
+    - open by tapping a memory tile
+    - horizontal swipe moves between that day’s images
+    - close via top-right close button or swipe-down gesture
+    - while viewer is open, calendar month/week horizontal pan is disabled to avoid gesture conflicts.
   - Memory add is currently local mock state via `useDayMemories` (no backend persistence yet).
 
 ### `packages/shared`

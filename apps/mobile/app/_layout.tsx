@@ -2,7 +2,12 @@ import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
 import { StatusBar } from "expo-status-bar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, DynamicColorIOS, Platform, View } from "react-native";
+import {
+	ActivityIndicator,
+	DynamicColorIOS,
+	Platform,
+	View,
+} from "react-native";
 import { AuthScreen } from "../src/components/auth-screen";
 import { AuthProvider, useAuth } from "../src/context/auth-context";
 import { initializeMemoriesDb } from "../src/features/memories/local-db";

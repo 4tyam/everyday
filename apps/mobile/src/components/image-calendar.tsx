@@ -235,6 +235,7 @@ export function ImageCalendar() {
 	const [selectedWeekIndex, setSelectedWeekIndex] = useState<number | null>(
 		null,
 	);
+	const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 	const colorScheme = useColorScheme();
 	const theme = getTheme(colorScheme);
 	const todayDate = now;
@@ -419,6 +420,7 @@ export function ImageCalendar() {
 		() =>
 			PanResponder.create({
 				onMoveShouldSetPanResponder: (_, gestureState) =>
+					!isImageViewerOpen &&
 					Math.abs(gestureState.dx) > 12 &&
 					Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
 				onPanResponderRelease: (_, gestureState) => {
@@ -442,7 +444,7 @@ export function ImageCalendar() {
 					}
 				},
 			}),
-		[selectedDay, maximumMonth, minimumMonth, visibleMonth],
+		[isImageViewerOpen, selectedDay, maximumMonth, minimumMonth, visibleMonth],
 	);
 
 	const onOpenYearOverview = () => {
@@ -1002,24 +1004,24 @@ export function ImageCalendar() {
 												const isSelected =
 													selectedDay === day &&
 													selectedWeekIndex === weekIndex;
-											const dayMemories = getMemories(
-												toDayKey(visibleMonth, day),
-											);
-											const hasMemories = dayMemories.length > 0;
-											const canOpenDay = isToday || hasMemories;
-											const dayMemoryPreviewColors = dayMemories
-												.slice(0, 3)
-												.map(
-													(memory) =>
-														memory.dominantColor ??
-														fallbackDotColorFromUri(memory.uri),
+												const dayMemories = getMemories(
+													toDayKey(visibleMonth, day),
 												);
-											return (
-												<DayCell
-													key={`${visibleMonth}-day-${weekIndex}-${dayIndex}`}
-													day={day}
-													memoryPreviewColors={dayMemoryPreviewColors}
-													hasMemories={canOpenDay}
+												const hasMemories = dayMemories.length > 0;
+												const canOpenDay = isToday || hasMemories;
+												const dayMemoryPreviewColors = dayMemories
+													.slice(0, 3)
+													.map(
+														(memory) =>
+															memory.dominantColor ??
+															fallbackDotColorFromUri(memory.uri),
+													);
+												return (
+													<DayCell
+														key={`${visibleMonth}-day-${weekIndex}-${dayIndex}`}
+														day={day}
+														memoryPreviewColors={dayMemoryPreviewColors}
+														hasMemories={canOpenDay}
 														isSelected={isSelected}
 														isToday={isToday}
 														textColor={theme.textPrimary}
@@ -1065,6 +1067,7 @@ export function ImageCalendar() {
 										canAddMemory={activeCanAddMemory}
 										onScrollDown={onActiveScrollDown}
 										onPullDown={onActivePullDown}
+										onImageViewerVisibilityChange={setIsImageViewerOpen}
 										bottomInset={activeBottomInset}
 										viewportHeight={activeViewportHeight}
 										textPrimary={theme.textPrimary}
@@ -1089,7 +1092,7 @@ export function ImageCalendar() {
 										</Text>
 									</Pressable>
 								</View>
-								) : null}
+							) : null}
 						</Animated.View>
 					</>
 				)}
