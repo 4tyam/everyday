@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	addMemoryUris,
+	deleteMemoryById,
 	listMemoriesByDay,
 	listMemoriesByMonth,
 } from "./repository";
@@ -133,6 +134,63 @@ export function useDayMemories({
 					]);
 				},
 			);
+			void queryClient.invalidateQueries({
+				queryKey: ["trips", "memories", userId],
+			});
+			void queryClient.invalidateQueries({
+				queryKey: ["trips", "counts", userId],
+			});
+			void queryClient.invalidateQueries({
+				queryKey: ["trips", "previews", userId],
+			});
+		},
+	});
+
+	const removeMutation = useMutation({
+		mutationFn: async (params: { dayKey: DayKey; memoryId: string }) => {
+			if (!userId) {
+				return null;
+			}
+			return deleteMemoryById({ userId, memoryId: params.memoryId });
+		},
+		onSuccess: (
+			result: { dayKey: DayKey; memoryId: string } | null,
+			vars: { dayKey: DayKey; memoryId: string },
+		) => {
+			if (!userId || !result) {
+				return;
+			}
+
+			queryClient.setQueryData<DayMemory[]>(
+				dayQueryKey(userId, vars.dayKey),
+				(current: DayMemory[] | undefined) =>
+					(current ?? []).filter((memory) => memory.id !== vars.memoryId),
+			);
+
+			const monthKey = getMonthFromDayKey(vars.dayKey);
+			queryClient.setQueryData<DayMemoryMap>(
+				monthQueryKey(userId, monthKey),
+				(current: DayMemoryMap | undefined) => {
+					if (!current) {
+						return current;
+					}
+					const existingDay = current[vars.dayKey] ?? [];
+					return upsertDayInMap(
+						current,
+						vars.dayKey,
+						existingDay.filter((memory) => memory.id !== vars.memoryId),
+					);
+				},
+			);
+			void queryClient.invalidateQueries({
+				queryKey: ["trips", "memories", userId],
+			});
+			void queryClient.invalidateQueries({
+				queryKey: ["trips", "counts", userId],
+			});
+			void queryClient.invalidateQueries({
+				queryKey: ["trips", "previews", userId],
+			});
 		},
 	});
 
@@ -149,6 +207,16 @@ export function useDayMemories({
 			addMutation.mutate({ dayKey, assets });
 		},
 		[addMutation, userId],
+	);
+
+	const removeMemory = useCallback(
+		(dayKey: DayKey, memoryId: string) => {
+			if (!userId || !memoryId) {
+				return;
+			}
+			removeMutation.mutate({ dayKey, memoryId });
+		},
+		[removeMutation, userId],
 	);
 
 	const getDotCount = useCallback(
@@ -176,6 +244,7 @@ export function useDayMemories({
 
 	return {
 		addMemories,
+		removeMemory,
 		getDotCount,
 		getMemories,
 		memoriesByDay,

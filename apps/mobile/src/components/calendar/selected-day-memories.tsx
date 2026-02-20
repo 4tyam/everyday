@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import {
 	Image,
 	PanResponder,
@@ -16,6 +16,7 @@ type SelectedDayMemoriesProps = {
 	dateLabel: string;
 	memories: DayMemory[];
 	onAddPress: () => void;
+	onDeleteMemory: (dayKey: DayMemory["dayKey"], memoryId: string) => void;
 	canAddMemory: boolean;
 	bottomInset?: number;
 	viewportHeight?: number;
@@ -88,6 +89,7 @@ export function SelectedDayMemories({
 	dateLabel,
 	memories,
 	onAddPress,
+	onDeleteMemory,
 	canAddMemory,
 	bottomInset = 110,
 	viewportHeight,
@@ -203,7 +205,8 @@ export function SelectedDayMemories({
 			{memories.length > 0 ? (
 				<ScrollView
 					showsVerticalScrollIndicator={false}
-					alwaysBounceVertical={false}
+					bounces={Boolean(onPullDown)}
+					alwaysBounceVertical={Boolean(onPullDown)}
 					style={{ height: memoriesViewportHeight }}
 					contentContainerStyle={{ paddingBottom: tabClearanceInset }}
 					scrollIndicatorInsets={{ bottom: tabClearanceInset }}
@@ -265,6 +268,7 @@ export function SelectedDayMemories({
 				visible={isViewerOpen}
 				memories={memories}
 				initialIndex={viewerIndex}
+				onDeleteMemory={(memory) => onDeleteMemory(memory.dayKey, memory.id)}
 				onClose={() => {
 					setIsViewerOpen(false);
 					onImageViewerVisibilityChange?.(false);

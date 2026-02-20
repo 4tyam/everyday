@@ -1,6 +1,6 @@
 import { getMemoriesDb } from "./local-db";
 import { resolveDominantColor } from "./dominant-color";
-import { persistMemoryImage } from "./local-files";
+import { deleteMemoryImage, persistMemoryImage } from "./local-files";
 import type { DayKey, DayMemory } from "./types";
 
 type MemoryRow = {
@@ -151,4 +151,44 @@ export async function addMemoryUris(params: {
 	}
 
 	return created;
+}
+
+export async function deleteMemoryById(params: {
+	userId: string;
+	memoryId: string;
+}) {
+	const { userId, memoryId } = params;
+	const db = await getMemoriesDb();
+	const existing = await db.getFirstAsync<{
+		id: string;
+		day_key: string;
+		local_uri: string;
+	}>(
+		`SELECT id, day_key, local_uri
+		FROM memories
+		WHERE user_id = ? AND id = ?
+		LIMIT 1`,
+		userId,
+		memoryId,
+	);
+
+	if (!existing) {
+		return null;
+	}
+
+	await deleteMemoryImage(existing.local_uri);
+	await db.runAsync(
+		`DELETE FROM memories
+		WHERE user_id = ? AND id = ?`,
+		userId,
+		memoryId,
+	);
+	await db.runAsync(
+		`DELETE FROM memory_sync_queue
+		WHERE user_id = ? AND memory_id = ?`,
+		userId,
+		memoryId,
+	);
+
+	return { dayKey: existing.day_key as DayKey, memoryId };
 }

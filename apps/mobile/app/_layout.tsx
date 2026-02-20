@@ -54,6 +54,11 @@ function AppShell() {
 				<Label>Home</Label>
 			</NativeTabs.Trigger>
 
+			<NativeTabs.Trigger name="trips">
+				<Icon sf={{ default: "airplane", selected: "airplane" }} />
+				<Label>Trips</Label>
+			</NativeTabs.Trigger>
+
 			<NativeTabs.Trigger name="today">
 				<Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
 				<Label>Today</Label>

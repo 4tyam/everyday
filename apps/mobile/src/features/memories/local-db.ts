@@ -37,6 +37,20 @@ async function setupSchema(db: SQLite.SQLiteDatabase) {
 		);
 		CREATE INDEX IF NOT EXISTS idx_sync_queue_user_status
 			ON memory_sync_queue (user_id, status, next_retry_at);
+
+		CREATE TABLE IF NOT EXISTS trips (
+			id TEXT PRIMARY KEY NOT NULL,
+			user_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			start_day_key TEXT NOT NULL,
+			end_day_key TEXT NOT NULL,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_trips_user_created
+			ON trips (user_id, created_at DESC);
+		CREATE INDEX IF NOT EXISTS idx_trips_user_range
+			ON trips (user_id, start_day_key, end_day_key);
 	`);
 
 	// Forward-compatible local migration for users who already created the DB.

@@ -16,6 +16,12 @@ import { DayCell } from "./calendar/day-cell";
 import { SelectedDayMemories } from "./calendar/selected-day-memories";
 import { useAuth } from "../context/auth-context";
 import { captureMemoryImages } from "../features/memories/capture-memory-images";
+import {
+	startOfLocalDay,
+	toDayKey,
+	toLocalDayKey,
+	toMonthKey,
+} from "../features/memories/day-key";
 import type { DayKey } from "../features/memories/types";
 import { useDayMemories } from "../features/memories/use-day-memories";
 import { getTheme } from "../theme/colors";
@@ -38,10 +44,6 @@ const monthNames = [
 
 const weekDayLetters = ["M", "T", "W", "T", "F", "S", "S"];
 const monthWeekRowHeight = 56;
-
-function toMonthKey(year: number, month: number): string {
-	return `${year}-${String(month).padStart(2, "0")}`;
-}
 
 function parseMonthKey(monthKey: string): { year: number; month: number } {
 	const [yearRaw, monthRaw] = monthKey.split("-");
@@ -135,20 +137,6 @@ function buildMonthWeeks(
 		weeks.push(cells.slice(index, index + 7));
 	}
 	return weeks;
-}
-
-function toDayKey(monthKey: string, day: number): DayKey {
-	return `${monthKey}-${String(day).padStart(2, "0")}` as DayKey;
-}
-
-function toLocalDayKey(date: Date): DayKey {
-	return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-		date.getDate(),
-	).padStart(2, "0")}` as DayKey;
-}
-
-function startOfLocalDay(date: Date): Date {
-	return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 function formatMemoryHeaderDateLabel(
@@ -256,7 +244,7 @@ export function ImageCalendar() {
 	const selectedDayBackgroundColor = filledBlueBackground;
 	const calendarIconColor =
 		colorScheme === "dark" ? "#ffffff" : theme.textPrimary;
-	const { addMemories, getMemories } = useDayMemories({
+	const { addMemories, getMemories, removeMemory } = useDayMemories({
 		userId: user?.id ?? null,
 		visibleMonthKey: visibleMonth,
 		todayDayKey: todayKey,
@@ -676,7 +664,9 @@ export function ImageCalendar() {
 	const onAddPreviousDayMemoryPress = () => {
 		void onAddMemoryPressForDay(previousDayKey);
 	};
-
+	const onDeleteMemoryPress = (dayKey: DayKey, memoryId: string) => {
+		removeMemory(dayKey, memoryId);
+	};
 	const shouldShowMemoriesPanel =
 		selectedDay !== null ||
 		(visibleYear === todayYear &&
@@ -776,7 +766,7 @@ export function ImageCalendar() {
 				</View>
 				<Pressable
 					className="rounded-lg p-2 active:opacity-70"
-					style={{ marginTop: -8 }}
+					style={{ marginTop: -8, marginLeft: 12 }}
 					onPress={
 						isYearOverviewOpen ? onJumpToCurrentMonth : onOpenYearOverview
 					}
@@ -1064,6 +1054,7 @@ export function ImageCalendar() {
 										dateLabel={activeDateLabel}
 										memories={activeMemories}
 										onAddPress={onActiveAddMemoryPress}
+										onDeleteMemory={onDeleteMemoryPress}
 										canAddMemory={activeCanAddMemory}
 										onScrollDown={onActiveScrollDown}
 										onPullDown={onActivePullDown}

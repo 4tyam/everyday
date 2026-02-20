@@ -28,3 +28,14 @@ export async function persistMemoryImage(params: {
 	source.copy(destination);
 	return destination.uri;
 }
+
+export async function deleteMemoryImage(uri: string) {
+	try {
+		const file = new File(uri);
+		if (file.exists) {
+			file.delete();
+		}
+	} catch {
+		// Best-effort cleanup; keep DB delete resilient.
+	}
+}

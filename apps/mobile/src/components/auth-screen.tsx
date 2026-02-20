@@ -129,7 +129,7 @@ export function AuthScreen({ onSkip }: AuthScreenProps) {
 											}}
 											resizeMode="contain"
 										/>
-										<Text className="text-[19px] font-semibold text-[#111111]">
+										<Text className="text-[17px] font-medium text-[#111111]">
 											Continue with Apple
 										</Text>
 									</>
@@ -158,7 +158,7 @@ export function AuthScreen({ onSkip }: AuthScreenProps) {
 											style={{ width: 18, height: 18, marginRight: 10 }}
 											resizeMode="contain"
 										/>
-										<Text className="text-[19px] font-semibold text-[#111111]">
+										<Text className="text-[17px] font-medium text-[#111111]">
 											Continue with Google
 										</Text>
 									</>
