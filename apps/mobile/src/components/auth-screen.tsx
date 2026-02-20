@@ -5,6 +5,7 @@ import {
 	ImageBackground,
 	Pressable,
 	Text,
+	useColorScheme,
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,6 +13,7 @@ import { useAuth } from "../context/auth-context";
 import { authClient } from "../lib/auth";
 
 const authBg = require("../assets/images/auth-bg.png");
+const authBgDark = require("../assets/images/auth-bg-dark.png");
 const appleLogo = require("../assets/icons/apple-logo.png");
 const googleLogo = require("../assets/icons/google-logo.png");
 
@@ -25,6 +27,9 @@ type AuthScreenProps = {
 };
 
 export function AuthScreen({ onSkip }: AuthScreenProps) {
+	const colorScheme = useColorScheme();
+	const backgroundImage = colorScheme === "dark" ? authBgDark : authBg;
+	const titleColor = colorScheme === "dark" ? "#ffffff" : "#111827";
 	const [actionLoading, setActionLoading] = useState(false);
 	const [pendingProvider, setPendingProvider] = useState<Provider | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
@@ -56,15 +61,15 @@ export function AuthScreen({ onSkip }: AuthScreenProps) {
 	};
 
 	return (
-		<ImageBackground source={authBg} resizeMode="cover" style={{ flex: 1 }}>
+		<ImageBackground source={backgroundImage} resizeMode="cover" style={{ flex: 1 }}>
 			<SafeAreaView style={{ flex: 1 }}>
 				<View style={{ flex: 1, paddingHorizontal: 28, paddingBottom: 24 }}>
 					<View style={{ marginTop: 72, alignItems: "center" }}>
 						<Text
 							style={{
 								fontSize: 56,
-								fontWeight: "700",
-								color: "#111827",
+								fontWeight: "500",
+								color: titleColor,
 								letterSpacing: -1.5,
 								textAlign: "center",
 							}}

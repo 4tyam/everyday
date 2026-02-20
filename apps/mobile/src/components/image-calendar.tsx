@@ -44,6 +44,16 @@ const monthNames = [
 
 const weekDayLetters = ["M", "T", "W", "T", "F", "S", "S"];
 const monthWeekRowHeight = 56;
+const memoryDotPalette = [
+	"#ef4444", // red
+	"#f97316", // orange
+	"#eab308", // yellow
+	"#22c55e", // green
+	"#23a6ff", // blue
+	"#6366f1", // indigo
+	"#8b5cf6", // violet
+	"#FF00FF", // pink
+];
 
 function parseMonthKey(monthKey: string): { year: number; month: number } {
 	const [yearRaw, monthRaw] = monthKey.split("-");
@@ -182,16 +192,6 @@ function formatMemoryHeaderDateLabel(
 	});
 }
 
-function fallbackDotColorFromUri(uri: string): string {
-	let hash = 0;
-	for (let index = 0; index < uri.length; index += 1) {
-		hash = (hash << 5) - hash + uri.charCodeAt(index);
-		hash |= 0;
-	}
-	const hue = Math.abs(hash) % 360;
-	return `hsl(${hue}, 58%, 54%)`;
-}
-
 export function ImageCalendar() {
 	const { user, session } = useAuth();
 	const [now, setNow] = useState(() => new Date());
@@ -244,7 +244,7 @@ export function ImageCalendar() {
 	const selectedDayBackgroundColor = filledBlueBackground;
 	const calendarIconColor =
 		colorScheme === "dark" ? "#ffffff" : theme.textPrimary;
-	const { addMemories, getMemories, removeMemory } = useDayMemories({
+	const { addMemories, getMemories, memoriesByDay, removeMemory } = useDayMemories({
 		userId: user?.id ?? null,
 		visibleMonthKey: visibleMonth,
 		todayDayKey: todayKey,
@@ -538,6 +538,28 @@ export function ImageCalendar() {
 		}
 		return getMemories(selectedDayKey);
 	}, [getMemories, selectedDayKey]);
+	const dotColorsByDay = useMemo(() => {
+		const dayKeys = Object.keys(memoriesByDay).sort() as DayKey[];
+		const result: Partial<Record<DayKey, string[]>> = {};
+		let paletteCursor = 0;
+
+		for (const dayKey of dayKeys) {
+			const dayMemories = memoriesByDay[dayKey] ?? [];
+			const visibleDotCount = Math.min(dayMemories.length, 3);
+			const dayColors: string[] = [];
+
+			for (let index = 0; index < visibleDotCount; index += 1) {
+				dayColors.push(memoryDotPalette[paletteCursor % memoryDotPalette.length]);
+				paletteCursor += 1;
+			}
+
+			if (dayColors.length > 0) {
+				result[dayKey] = dayColors;
+			}
+		}
+
+		return result;
+	}, [memoriesByDay]);
 	const isSelectedDayToday = selectedDayKey === todayKey;
 	const isSelectedDayPrevious = selectedDayKey === previousDayKey;
 	const selectedDate = useMemo(() => {
@@ -695,8 +717,8 @@ export function ImageCalendar() {
 
 	return (
 		<View
-			className="rounded-[28px] px-4 pb-5 pt-5"
-			style={{ backgroundColor: theme.card }}
+			className="px-4 pb-5 pt-5"
+			style={{ backgroundColor: "transparent" }}
 		>
 			<View className="mb-2 flex-row items-center justify-between px-1">
 				<View className="flex-row items-center">
@@ -999,13 +1021,8 @@ export function ImageCalendar() {
 												);
 												const hasMemories = dayMemories.length > 0;
 												const canOpenDay = isToday || hasMemories;
-												const dayMemoryPreviewColors = dayMemories
-													.slice(0, 3)
-													.map(
-														(memory) =>
-															memory.dominantColor ??
-															fallbackDotColorFromUri(memory.uri),
-													);
+												const dayMemoryPreviewColors =
+													dotColorsByDay[dateKey as DayKey] ?? [];
 												return (
 													<DayCell
 														key={`${visibleMonth}-day-${weekIndex}-${dayIndex}`}
