@@ -15,7 +15,6 @@
 		"lint:fix": "pnpm exec biome lint --write .",
 		"format": "pnpm exec biome format --write .",
 		"format:check": "pnpm exec biome format .",
-		"format:write": "pnpm exec biome format --write .",
 		"check": "pnpm exec biome check .",
 		"check:fix": "pnpm exec biome check --write .",
 		"db:up": "docker compose up -d postgres adminer",

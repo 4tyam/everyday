@@ -1,28 +1,51 @@
-import { useEffect, useState } from "react";
+import Constants from "expo-constants";
+import { useEffect, useMemo, useState } from "react";
 import {
 	ActivityIndicator,
+	Platform,
 	Pressable,
-	SafeAreaView,
+	ScrollView,
 	Text,
 	TextInput,
+	useColorScheme,
 	View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { authClient } from "./src/lib/auth";
-import { AuthProvider, useAuth } from "./src/context/auth-context";
+import { useAuth } from "./src/context/auth-context";
+import { getTheme } from "./src/theme/colors";
 
 const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
 const appScheme = process.env.EXPO_PUBLIC_APP_SCHEME ?? "everyday";
 const signedInRedirectUrl = `${appScheme}://auth/success`;
 
-function AppContent() {
+type SwiftUIModule = typeof import("@expo/ui/swift-ui");
+
+function loadSwiftUI(): SwiftUIModule | null {
+	try {
+		return require("@expo/ui/swift-ui") as SwiftUIModule;
+	} catch {
+		return null;
+	}
+}
+
+export default function HomeScreen() {
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [actionLoading, setActionLoading] = useState(false);
 	const [screen, setScreen] = useState<"auth" | "home">("auth");
+	const theme = getTheme(useColorScheme());
 
 	const { user, isLoading, error: sessionError, refetch, signOut } = useAuth();
+	const isBusy = isLoading || actionLoading;
+	const canUseExpoUI =
+		Platform.OS === "ios" && Constants.executionEnvironment !== "storeClient";
+	const swiftUI = useMemo(
+		() => (canUseExpoUI ? loadSwiftUI() : null),
+		[canUseExpoUI],
+	);
 
 	useEffect(() => {
 		if (user) {
@@ -108,115 +131,314 @@ function AppContent() {
 	};
 
 	return (
-		<SafeAreaView className="flex-1 justify-center bg-slate-100 p-5">
-			<View className="gap-3 rounded-2xl bg-white p-5">
-				<Text className="text-3xl font-bold text-slate-900">Everyday Auth</Text>
-				<Text className="text-base text-slate-700">
-					Auth base: {apiBaseUrl}/api/auth
-				</Text>
+		<SafeAreaView
+			className="flex-1"
+			style={{ backgroundColor: theme.background }}
+		>
+			<ScrollView
+				contentContainerClassName="flex-grow px-5 pb-10 pt-8"
+				keyboardShouldPersistTaps="handled"
+			>
+				<View className="mb-6 gap-1">
+					<Text
+						className="text-[34px] font-bold tracking-[-0.5px]"
+						style={{ color: theme.textPrimary }}
+					>
+						Welcome
+					</Text>
+					<Text className="text-[15px]" style={{ color: theme.textTertiary }}>
+						Sign in to Everyday.
+					</Text>
+				</View>
 
-				{(isLoading || actionLoading) && <ActivityIndicator size="small" />}
+				<View
+					className="mb-4 rounded-2xl p-4"
+					style={{ backgroundColor: theme.card }}
+				>
+					<Text
+						className="text-[12px] font-semibold uppercase tracking-[0.8px]"
+						style={{ color: theme.accentMuted }}
+					>
+						Auth Endpoint
+					</Text>
+					<Text
+						className="mt-1 text-[14px]"
+						style={{ color: theme.textSecondary }}
+					>
+						{apiBaseUrl}/api/auth
+					</Text>
+				</View>
+
+				{isBusy && (
+					<View
+						className="mb-4 rounded-2xl p-4"
+						style={{ backgroundColor: theme.card }}
+					>
+						<View className="flex-row items-center gap-2">
+							<ActivityIndicator size="small" color={theme.accent} />
+							<Text
+								className="text-[14px]"
+								style={{ color: theme.textTertiary }}
+							>
+								Processing...
+							</Text>
+						</View>
+					</View>
+				)}
 
 				{!!sessionError && (
-					<Text className="text-base text-red-700">
-						Session error: {sessionError.message ?? "Could not read session"}
-					</Text>
+					<View
+						className="mb-4 rounded-2xl p-4"
+						style={{ backgroundColor: theme.card }}
+					>
+						<Text className="text-[14px]" style={{ color: theme.error }}>
+							Session error: {sessionError.message ?? "Could not read session"}
+						</Text>
+					</View>
 				)}
 
 				{!!actionError && (
-					<Text className="text-base text-red-700">
-						Auth error: {actionError}
-					</Text>
+					<View
+						className="mb-4 rounded-2xl p-4"
+						style={{ backgroundColor: theme.card }}
+					>
+						<Text className="text-[14px]" style={{ color: theme.error }}>
+							Auth error: {actionError}
+						</Text>
+					</View>
 				)}
 
 				{screen === "home" && user ? (
-					<View className="gap-2.5">
-						<Text className="text-base text-slate-700">Signed in as</Text>
-						<Text className="text-base font-semibold text-slate-900">
-							{user.email}
-						</Text>
-						<Text className="text-base text-slate-700">userId: {user.id}</Text>
+					<View className="gap-4">
+						<View
+							className="rounded-2xl p-4"
+							style={{ backgroundColor: theme.card }}
+						>
+							<Text
+								className="mb-1 text-[12px] font-semibold uppercase tracking-[0.8px]"
+								style={{ color: theme.accentMuted }}
+							>
+								Signed In
+							</Text>
+							<Text
+								className="text-[17px] font-semibold"
+								style={{ color: theme.textSecondary }}
+							>
+								{user.email}
+							</Text>
+							<Text
+								className="mt-2 text-[13px]"
+								style={{ color: theme.textTertiary }}
+							>
+								ID: {user.id}
+							</Text>
+						</View>
+						<View className="flex-row gap-2.5">
+							<Pressable
+								className="flex-1 items-center justify-center rounded-xl py-3 active:opacity-80"
+								style={{ backgroundColor: theme.card }}
+								disabled={isBusy}
+								onPress={() => refetch()}
+							>
+								<Text
+									className="text-[15px] font-medium"
+									style={{ color: theme.accent }}
+								>
+									Refresh
+								</Text>
+							</Pressable>
+							<Pressable
+								className="flex-1 items-center justify-center rounded-xl py-3 active:opacity-80"
+								style={{ backgroundColor: theme.card }}
+								disabled={isBusy}
+								onPress={onSignOut}
+							>
+								<Text
+									className="text-[15px] font-medium"
+									style={{ color: theme.destructive }}
+								>
+									Sign out
+								</Text>
+							</Pressable>
+						</View>
 					</View>
 				) : (
-					<View className="gap-2.5">
-						<TextInput
-							autoCapitalize="words"
-							placeholder="Name"
-							className="rounded-xl border border-slate-300 px-3 py-2.5"
-							value={name}
-							onChangeText={setName}
-						/>
-						<TextInput
-							autoCapitalize="none"
-							autoComplete="email"
-							keyboardType="email-address"
-							placeholder="Email"
-							className="rounded-xl border border-slate-300 px-3 py-2.5"
-							value={email}
-							onChangeText={setEmail}
-						/>
-						<TextInput
-							autoCapitalize="none"
-							autoComplete="password"
-							secureTextEntry
-							placeholder="Password"
-							className="rounded-xl border border-slate-300 px-3 py-2.5"
-							value={password}
-							onChangeText={setPassword}
-						/>
+					<>
+						<View
+							className="rounded-2xl p-4"
+							style={{ backgroundColor: theme.card }}
+						>
+							<Text
+								className="mb-3 text-[13px] font-semibold"
+								style={{ color: theme.accentMuted }}
+							>
+								Email & Password
+							</Text>
 
-						<Pressable
-							className="items-center rounded-xl bg-slate-900 py-2.5"
-							onPress={onSignUp}
-						>
-							<Text className="font-semibold text-white">
-								Sign up with email
-							</Text>
-						</Pressable>
-						<Pressable
-							className="items-center justify-center rounded-xl border border-slate-900 bg-white py-2.5"
-							onPress={onSignIn}
-						>
-							<Text className="text-base font-semibold text-slate-900">
-								Sign in with email
-							</Text>
-						</Pressable>
-						<Pressable
-							className="items-center justify-center rounded-xl border border-blue-600 bg-white py-2.5"
-							onPress={onGoogleSignIn}
-						>
-							<Text className="text-base font-semibold text-blue-700">
-								Continue with Google
-							</Text>
-						</Pressable>
-					</View>
+							{swiftUI ? (
+								<View className="gap-2.5">
+									<swiftUI.Host
+										matchContents
+										style={{ minHeight: 44, justifyContent: "center" }}
+									>
+										<swiftUI.TextField
+											key={`name-${screen}`}
+											defaultValue={name}
+											placeholder="Name"
+											onChangeText={setName}
+										/>
+									</swiftUI.Host>
+									<View
+										className="h-px"
+										style={{ backgroundColor: theme.separator }}
+									/>
+									<swiftUI.Host
+										matchContents
+										style={{ minHeight: 44, justifyContent: "center" }}
+									>
+										<swiftUI.TextField
+											key={`email-${screen}`}
+											defaultValue={email}
+											placeholder="Email"
+											keyboardType="email-address"
+											onChangeText={setEmail}
+										/>
+									</swiftUI.Host>
+									<View
+										className="h-px"
+										style={{ backgroundColor: theme.separator }}
+									/>
+									<swiftUI.Host
+										matchContents
+										style={{ minHeight: 44, justifyContent: "center" }}
+									>
+										<swiftUI.TextField
+											key={`password-${screen}`}
+											defaultValue={password}
+											placeholder="Password"
+											onChangeText={setPassword}
+										/>
+									</swiftUI.Host>
+								</View>
+							) : (
+								<View className="gap-2.5">
+									<TextInput
+										autoCapitalize="words"
+										placeholder="Name"
+										placeholderTextColor={theme.accentMuted}
+										className="rounded-xl border px-3 py-2.5 text-[16px]"
+										style={{
+											borderColor: theme.border,
+											color: theme.textSecondary,
+										}}
+										value={name}
+										onChangeText={setName}
+									/>
+									<TextInput
+										autoCapitalize="none"
+										autoComplete="email"
+										keyboardType="email-address"
+										placeholder="Email"
+										placeholderTextColor={theme.accentMuted}
+										className="rounded-xl border px-3 py-2.5 text-[16px]"
+										style={{
+											borderColor: theme.border,
+											color: theme.textSecondary,
+										}}
+										value={email}
+										onChangeText={setEmail}
+									/>
+									<TextInput
+										autoCapitalize="none"
+										autoComplete="password"
+										secureTextEntry
+										placeholder="Password"
+										placeholderTextColor={theme.accentMuted}
+										className="rounded-xl border px-3 py-2.5 text-[16px]"
+										style={{
+											borderColor: theme.border,
+											color: theme.textSecondary,
+										}}
+										value={password}
+										onChangeText={setPassword}
+									/>
+								</View>
+							)}
+						</View>
+
+						{swiftUI ? (
+							<View className="mt-4 gap-2.5">
+								<swiftUI.Host matchContents style={{ minHeight: 44 }}>
+									<swiftUI.Button
+										variant="borderedProminent"
+										disabled={isBusy}
+										onPress={onSignUp}
+									>
+										Create account
+									</swiftUI.Button>
+								</swiftUI.Host>
+								<swiftUI.Host matchContents style={{ minHeight: 44 }}>
+									<swiftUI.Button
+										variant="bordered"
+										disabled={isBusy}
+										onPress={onSignIn}
+									>
+										Sign in
+									</swiftUI.Button>
+								</swiftUI.Host>
+								<swiftUI.Host matchContents style={{ minHeight: 44 }}>
+									<swiftUI.Button
+										variant="glassProminent"
+										disabled={isBusy}
+										onPress={onGoogleSignIn}
+									>
+										Continue with Google
+									</swiftUI.Button>
+								</swiftUI.Host>
+							</View>
+						) : (
+							<View className="mt-4 gap-2.5">
+								<Pressable
+									className="items-center rounded-xl py-3 active:opacity-80"
+									style={{ backgroundColor: theme.accent }}
+									disabled={isBusy}
+									onPress={onSignUp}
+								>
+									<Text className="text-[15px] font-semibold text-white">
+										Create account
+									</Text>
+								</Pressable>
+								<Pressable
+									className="items-center rounded-xl py-3 active:opacity-80"
+									style={{ backgroundColor: theme.card }}
+									disabled={isBusy}
+									onPress={onSignIn}
+								>
+									<Text
+										className="text-[15px] font-medium"
+										style={{ color: theme.accent }}
+									>
+										Sign in
+									</Text>
+								</Pressable>
+								<Pressable
+									className="items-center rounded-xl py-3 active:opacity-80"
+									style={{ backgroundColor: theme.card }}
+									disabled={isBusy}
+									onPress={onGoogleSignIn}
+								>
+									<Text
+										className="text-[15px] font-medium"
+										style={{ color: theme.textSecondary }}
+									>
+										Continue with Google
+									</Text>
+								</Pressable>
+							</View>
+						)}
+					</>
 				)}
-
-				<View className="flex-row gap-2.5">
-					<Pressable
-						className="flex-1 items-center justify-center rounded-xl border border-slate-900 bg-white py-2.5"
-						onPress={() => refetch()}
-					>
-						<Text className="text-base font-semibold text-slate-900">
-							Refresh session
-						</Text>
-					</Pressable>
-					<Pressable
-						className="flex-1 items-center rounded-xl bg-red-800 py-2.5"
-						onPress={onSignOut}
-					>
-						<Text className="font-semibold text-white">Sign out</Text>
-					</Pressable>
-				</View>
-			</View>
+			</ScrollView>
 		</SafeAreaView>
-	);
-}
-
-export default function App() {
-	return (
-		<AuthProvider>
-			<AppContent />
-		</AuthProvider>
 	);
 }

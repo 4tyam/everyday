@@ -24,10 +24,18 @@ pnpm monorepo (`pnpm@9`, Node `>=20`) with workspaces in `apps/*` and `packages/
 - Auth client in `src/lib/auth.ts` using `@better-auth/expo/client` + `expo-secure-store`.
 - App-wide auth context added:
   - `src/context/auth-context.tsx` (`AuthProvider`, `useAuth`)
-- `App.tsx` currently has a basic auth demo UI:
-  - sign up / sign in with email
-  - Google sign in
-  - session display + sign out
+- Calendar-first UI now lives in Expo Router screens/components (not the old auth demo in `App.tsx`).
+- Main calendar implementation is in:
+  - `apps/mobile/src/components/image-calendar.tsx`
+  - `apps/mobile/src/components/calendar/day-cell.tsx`
+  - `apps/mobile/src/components/calendar/selected-day-memories.tsx`
+- Calendar behavior notes:
+  - Month view supports horizontal swipe between allowed months.
+  - Tapping a day collapses to week view (single row) with that day selected.
+  - Back arrow or iOS left-edge back swipe in week view resets to month view.
+  - In month view, scrolling/swiping up in the memories area collapses to week view (today row).
+  - In week view, pulling/swiping down from memories area resets to full month view.
+  - Memory add is currently local mock state via `useDayMemories` (no backend persistence yet).
 
 ### `packages/shared`
 - Shared workspace package (`shared`) with Zod schemas/types/constants.
