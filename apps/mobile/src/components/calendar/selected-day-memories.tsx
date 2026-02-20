@@ -118,7 +118,10 @@ export function SelectedDayMemories({
 			},
 			onPanResponderRelease: (_, gestureState) => {
 				if (!hasTriggeredHeaderSwipeRef.current) {
-					if ((gestureState.dy < -12 || gestureState.vy < -0.35) && onScrollDown) {
+					if (
+						(gestureState.dy < -12 || gestureState.vy < -0.35) &&
+						onScrollDown
+					) {
 						onScrollDown();
 					} else if (
 						(gestureState.dy > 12 || gestureState.vy > 0.35) &&
@@ -142,7 +145,10 @@ export function SelectedDayMemories({
 				className="mb-3 flex-row items-center justify-between"
 			>
 				<View>
-					<Text className="text-[16px] font-semibold" style={{ color: textPrimary }}>
+					<Text
+						className="text-[16px] font-semibold"
+						style={{ color: textPrimary }}
+					>
 						{dateLabel}
 					</Text>
 					<Text className="mt-1 text-[14px]" style={{ color: textSecondary }}>

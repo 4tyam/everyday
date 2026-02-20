@@ -47,7 +47,8 @@ export function useDayMemories() {
 	);
 
 	const totalMemories = useMemo(
-		() => Object.values(memoriesByDay).reduce((sum, day) => sum + day.length, 0),
+		() =>
+			Object.values(memoriesByDay).reduce((sum, day) => sum + day.length, 0),
 		[memoriesByDay],
 	);
 

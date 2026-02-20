@@ -3,6 +3,7 @@ import { Image, Pressable, Text, View } from "react-native";
 type DayCellProps = {
 	day: number;
 	memoryPreviewUris: string[];
+	hasMemories: boolean;
 	isSelected: boolean;
 	isToday: boolean;
 	onPress: () => void;
@@ -24,6 +25,7 @@ function mockColorFromUri(uri: string): string {
 export function DayCell({
 	day,
 	memoryPreviewUris,
+	hasMemories,
 	isSelected,
 	isToday,
 	onPress,
@@ -32,33 +34,41 @@ export function DayCell({
 	selectedDayBackgroundColor,
 }: DayCellProps) {
 	const showDots = memoryPreviewUris.length > 0;
+	const isDisabled = !hasMemories;
 	const isHighlighted = isToday || isSelected;
 	const dotSize = isHighlighted ? 4 : 5;
 	const dotTopMargin = isHighlighted ? 1 : -2;
 	const dotHorizontalMargin = isHighlighted ? 1.5 : 2;
 
 	return (
-		<Pressable className="flex-1 items-center justify-center" onPress={onPress}>
+		<Pressable
+			className="flex-1 items-center justify-center"
+			onPress={onPress}
+			disabled={isDisabled}
+			style={{ opacity: isDisabled ? 0.45 : 1 }}
+		>
 			<View className="items-center justify-center">
 				<View
 					className="items-center justify-center rounded-full"
 					style={
-						isSelected
-							? {
-									height: 42,
-									width: 42,
-									borderRadius: 21,
-									backgroundColor: selectedDayBackgroundColor,
-								}
-							: isToday
+						isDisabled
+							? { height: 40, width: 40, borderRadius: 20 }
+							: isSelected
 								? {
-										height: 40,
-										width: 40,
-										borderRadius: 20,
-										borderWidth: 1.5,
-										borderColor: todayCircleColor,
+										height: 42,
+										width: 42,
+										borderRadius: 21,
+										backgroundColor: selectedDayBackgroundColor,
 									}
-								: { height: 40, width: 40, borderRadius: 20 }
+								: isToday
+									? {
+											height: 40,
+											width: 40,
+											borderRadius: 20,
+											borderWidth: 1.5,
+											borderColor: todayCircleColor,
+										}
+									: { height: 40, width: 40, borderRadius: 20 }
 					}
 				>
 					<Text
