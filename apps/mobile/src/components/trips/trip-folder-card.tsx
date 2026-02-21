@@ -40,11 +40,12 @@ const FAN_LAYOUTS: Record<number, FanLayout[]> = {
 };
 
 export type TripFolderCardProps = {
-	name: string;
-	previews: TripPreviewImage[];
-	memoryCount: number;
+	name?: string;
+	previews?: TripPreviewImage[];
+	memoryCount?: number;
 	theme: AppTheme;
 	onPress: () => void;
+	variant?: "trip" | "create";
 };
 
 export function TripFolderCard({
@@ -53,12 +54,16 @@ export function TripFolderCard({
 	memoryCount,
 	theme,
 	onPress,
+	variant = "trip",
 }: TripFolderCardProps) {
-	const imageCount = Math.min(previews.length, 4);
+	const safePreviews = previews ?? [];
+	const safeMemoryCount = memoryCount ?? 0;
+	const imageCount = variant === "create" ? 0 : Math.min(safePreviews.length, 4);
 	const fanLayouts = FAN_LAYOUTS[imageCount] ?? [];
-	const previewStack = previews.slice(0, 4).reverse();
+	const previewStack = safePreviews.slice(0, 4).reverse();
 	const isDark = theme.background === "#1c1c1e";
 	const hasImages = imageCount > 0;
+	const title = variant === "create" ? "New Trip" : (name ?? "Trip");
 
 	return (
 		<Pressable
@@ -115,7 +120,7 @@ export function TripFolderCard({
 							styles.glassShadow,
 							{
 								zIndex: imageCount + 2,
-								shadowOpacity: isDark ? 0.42 : 0.17,
+								shadowOpacity: isDark ? 0.42 : variant === "create" ? 0.12 : 0.17,
 							},
 						]}
 					>
@@ -148,6 +153,20 @@ export function TripFolderCard({
 									},
 								]}
 							/>
+							{variant === "create" ? (
+								<View
+									style={[
+										styles.plusBubble,
+										{
+											backgroundColor: isDark
+												? "rgba(255,255,255,0.18)"
+												: "rgba(0,0,0,0.06)",
+										},
+									]}
+								>
+									<Text style={[styles.plusText, { color: theme.accent }]}>+</Text>
+								</View>
+							) : null}
 							<View style={styles.glassContent}>
 								<Text
 									style={[
@@ -156,28 +175,30 @@ export function TripFolderCard({
 									]}
 									numberOfLines={1}
 								>
-									{name}
+									{title}
 								</Text>
-								<View
-									style={[
-										styles.countPill,
-										{
-											backgroundColor: isDark
-												? "rgba(255,255,255,0.12)"
-												: "rgba(0,0,0,0.05)",
-										},
-									]}
-								>
-									<Text
+								{variant === "trip" ? (
+									<View
 										style={[
-											styles.countText,
-											{ color: theme.textTertiary },
+											styles.countPill,
+											{
+												backgroundColor: isDark
+													? "rgba(255,255,255,0.12)"
+													: "rgba(0,0,0,0.05)",
+											},
 										]}
 									>
-										{memoryCount}{" "}
-										{memoryCount === 1 ? "memory" : "memories"}
-									</Text>
-								</View>
+										<Text
+											style={[
+												styles.countText,
+												{ color: theme.textTertiary },
+											]}
+										>
+											{safeMemoryCount}{" "}
+											{safeMemoryCount === 1 ? "memory" : "memories"}
+										</Text>
+									</View>
+								) : null}
 							</View>
 						</View>
 					</View>
@@ -230,8 +251,24 @@ const styles = StyleSheet.create({
 		flex: 1,
 		justifyContent: "flex-end",
 		alignItems: "center",
-		paddingBottom: 14,
+		paddingBottom: 12,
 		paddingHorizontal: 12,
+	},
+	plusBubble: {
+		position: "absolute",
+		top: 14,
+		left: "50%",
+		marginLeft: -18,
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	plusText: {
+		fontSize: 28,
+		fontWeight: "500",
+		lineHeight: 29,
 	},
 	titleText: {
 		fontSize: 17,

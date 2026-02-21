@@ -24,11 +24,9 @@ function loadSwiftUI(): SwiftUIModule | null {
 export default function SettingsTab() {
 	const [notifications, setNotifications] = useState(true);
 	const [isDemoSheetOpen, setIsDemoSheetOpen] = useState(false);
-	const [selectedDate, setSelectedDate] = useState(new Date());
 	const [selectedFocusIndex, setSelectedFocusIndex] = useState<number | null>(
 		1,
 	);
-	const [focusLevel, setFocusLevel] = useState(0.45);
 	const theme = getTheme(useColorScheme());
 	const canUseExpoUI =
 		Platform.OS === "ios" && Constants.executionEnvironment !== "storeClient";
@@ -106,21 +104,11 @@ export default function SettingsTab() {
 						<View className="gap-3">
 							<swiftUI.Host matchContents style={{ minHeight: 44 }}>
 								<swiftUI.Button
-									variant="bordered"
+									variant="glass"
 									onPress={() => setIsDemoSheetOpen(true)}
 								>
 									Open bottom sheet
 								</swiftUI.Button>
-							</swiftUI.Host>
-
-							<swiftUI.Host matchContents style={{ minHeight: 210 }}>
-								<swiftUI.DateTimePicker
-									title="Pick a date"
-									initialDate={selectedDate.toISOString()}
-									variant="graphical"
-									displayedComponents="date"
-									onDateSelected={setSelectedDate}
-								/>
 							</swiftUI.Host>
 
 							<swiftUI.Host matchContents style={{ minHeight: 44 }}>
@@ -132,23 +120,6 @@ export default function SettingsTab() {
 									onOptionSelected={(event) =>
 										setSelectedFocusIndex(event.nativeEvent.index)
 									}
-								/>
-							</swiftUI.Host>
-
-							<swiftUI.Host matchContents style={{ minHeight: 56 }}>
-								<swiftUI.Slider
-									value={focusLevel}
-									min={0}
-									max={1}
-									onValueChange={setFocusLevel}
-									color={theme.accent}
-								/>
-							</swiftUI.Host>
-
-							<swiftUI.Host matchContents style={{ minHeight: 12 }}>
-								<swiftUI.LinearProgress
-									progress={focusLevel}
-									color={theme.accent}
 								/>
 							</swiftUI.Host>
 

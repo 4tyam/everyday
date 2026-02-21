@@ -8,6 +8,8 @@ import {
 	listTripMemoryCounts,
 	listTripPreviewImages,
 	listTrips,
+	renameTrip as renameTripInRepo,
+	updateTripDates as updateTripDatesInRepo,
 } from "./repository";
 import type { TripPreviewImage } from "./repository";
 import type { Trip, TripId, TripStatus } from "./types";
@@ -113,6 +115,70 @@ export function useTrips(params: { userId?: string | null; todayDayKey: DayKey }
 		},
 	});
 
+	const renameTripMutation = useMutation({
+		mutationFn: async (input: { tripId: TripId; name: string }) => {
+			if (!userId) {
+				throw new Error("You need to be signed in to rename a trip.");
+			}
+			return renameTripInRepo({
+				userId,
+				tripId: input.tripId,
+				name: input.name,
+			});
+		},
+		onSuccess: (updatedTrip) => {
+			if (!userId) {
+				return;
+			}
+			queryClient.setQueryData<Trip[]>(
+				tripsQueryKey(userId),
+				(current = []): Trip[] =>
+					current.map((trip) =>
+						trip.id === updatedTrip.id ? updatedTrip : trip,
+					),
+			);
+		},
+	});
+
+	const updateTripDatesMutation = useMutation({
+		mutationFn: async (input: {
+			tripId: TripId;
+			startDayKey: DayKey;
+			endDayKey: DayKey;
+		}) => {
+			if (!userId) {
+				throw new Error("You need to be signed in to update trip dates.");
+			}
+			return updateTripDatesInRepo({
+				userId,
+				tripId: input.tripId,
+				startDayKey: input.startDayKey,
+				endDayKey: input.endDayKey,
+			});
+		},
+		onSuccess: (updatedTrip) => {
+			if (!userId) {
+				return;
+			}
+			queryClient.setQueryData<Trip[]>(
+				tripsQueryKey(userId),
+				(current = []): Trip[] =>
+					current.map((trip) =>
+						trip.id === updatedTrip.id ? updatedTrip : trip,
+					),
+			);
+			void queryClient.invalidateQueries({
+				queryKey: tripCountsQueryKey(userId),
+			});
+			void queryClient.invalidateQueries({
+				queryKey: tripPreviewsQueryKey(userId),
+			});
+			void queryClient.invalidateQueries({
+				queryKey: ["trips", "memories", userId],
+			});
+		},
+	});
+
 	const trips = tripsQuery.data ?? [];
 
 	const groupedTrips = useMemo(() => {
@@ -144,8 +210,14 @@ export function useTrips(params: { userId?: string | null; todayDayKey: DayKey }
 		memoryCountsByTripId: tripCountsQuery.data ?? ({} as Record<TripId, number>),
 		previewsByTripId: tripPreviewsQuery.data ?? ({} as Record<TripId, TripPreviewImage[]>),
 		createTrip: createTripMutation.mutateAsync,
+		renameTrip: renameTripMutation.mutateAsync,
+		updateTripDates: updateTripDatesMutation.mutateAsync,
 		createTripError: createTripMutation.error,
+		renameTripError: renameTripMutation.error,
+		updateTripDatesError: updateTripDatesMutation.error,
 		isCreating: createTripMutation.isPending,
+		isRenaming: renameTripMutation.isPending,
+		isUpdatingTripDates: updateTripDatesMutation.isPending,
 		isLoading: tripsQuery.isLoading || tripCountsQuery.isLoading,
 		maxEndDayKey,
 	};
@@ -174,7 +246,7 @@ export function useTripMemories(params: {
 			Object.values(memoriesByDay).reduce<DayMemory[]>(
 				(all, dayMemories) => all.concat(dayMemories),
 				[],
-			),
+			).sort((a, b) => b.createdAt - a.createdAt),
 		[memoriesByDay],
 	);
 

@@ -125,6 +125,99 @@ export async function createTrip(params: {
 	return trip;
 }
 
+export async function renameTrip(params: {
+	userId: string;
+	tripId: TripId;
+	name: string;
+}): Promise<Trip> {
+	const { userId, tripId, name } = params;
+	const trimmedName = name.trim();
+
+	if (!trimmedName) {
+		throw new Error("Trip name is required.");
+	}
+	if (trimmedName.length > 60) {
+		throw new Error("Trip name must be 60 characters or fewer.");
+	}
+
+	const db = await getMemoriesDb();
+	const existing = await db.getFirstAsync<TripRow>(
+		`SELECT id, user_id, name, start_day_key, end_day_key, created_at, updated_at
+		FROM trips
+		WHERE id = ? AND user_id = ?
+		LIMIT 1`,
+		tripId,
+		userId,
+	);
+
+	if (!existing) {
+		throw new Error("Trip not found.");
+	}
+
+	const now = Date.now();
+	await db.runAsync(
+		`UPDATE trips
+		SET name = ?, updated_at = ?
+		WHERE id = ? AND user_id = ?`,
+		trimmedName,
+		now,
+		tripId,
+		userId,
+	);
+
+	return {
+		...toTrip(existing),
+		name: trimmedName,
+		updatedAt: now,
+	};
+}
+
+export async function updateTripDates(params: {
+	userId: string;
+	tripId: TripId;
+	startDayKey: DayKey;
+	endDayKey: DayKey;
+}): Promise<Trip> {
+	const { userId, tripId, startDayKey, endDayKey } = params;
+
+	if (compareDayKeys(endDayKey, startDayKey) < 0) {
+		throw new Error("Trip end date cannot be before the start date.");
+	}
+
+	const db = await getMemoriesDb();
+	const existing = await db.getFirstAsync<TripRow>(
+		`SELECT id, user_id, name, start_day_key, end_day_key, created_at, updated_at
+		FROM trips
+		WHERE id = ? AND user_id = ?
+		LIMIT 1`,
+		tripId,
+		userId,
+	);
+
+	if (!existing) {
+		throw new Error("Trip not found.");
+	}
+
+	const now = Date.now();
+	await db.runAsync(
+		`UPDATE trips
+		SET start_day_key = ?, end_day_key = ?, updated_at = ?
+		WHERE id = ? AND user_id = ?`,
+		startDayKey,
+		endDayKey,
+		now,
+		tripId,
+		userId,
+	);
+
+	return {
+		...toTrip(existing),
+		startDayKey,
+		endDayKey,
+		updatedAt: now,
+	};
+}
+
 export async function listMemoriesByDayRange(
 	userId: string,
 	startDayKey: DayKey,
