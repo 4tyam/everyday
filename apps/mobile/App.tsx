@@ -5,6 +5,7 @@ import {
 	Platform,
 	Pressable,
 	ScrollView,
+	Switch,
 	Text,
 	TextInput,
 	useColorScheme,
@@ -33,8 +34,13 @@ export default function HomeScreen() {
 	const [name, setName] = useState("");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [notifications, setNotifications] = useState(true);
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [actionLoading, setActionLoading] = useState(false);
+	const [isDemoSheetOpen, setIsDemoSheetOpen] = useState(false);
+	const [selectedFocusIndex, setSelectedFocusIndex] = useState<number | null>(
+		1,
+	);
 	const [screen, setScreen] = useState<"auth" | "home">("auth");
 	const theme = getTheme(useColorScheme());
 
@@ -438,6 +444,110 @@ export default function HomeScreen() {
 						)}
 					</>
 				)}
+
+				<View
+					className="mt-8 mb-3 h-px"
+					style={{ backgroundColor: theme.separator }}
+				/>
+
+				<View className="gap-1">
+					<Text
+						className="text-[28px] font-bold tracking-[-0.4px]"
+						style={{ color: theme.textPrimary }}
+					>
+						Settings
+					</Text>
+					<Text
+						className="text-[15px]"
+						style={{ color: theme.textTertiary }}
+					>
+						Keep things simple.
+					</Text>
+				</View>
+
+				<View
+					className="mt-5 rounded-2xl p-4"
+					style={{ backgroundColor: theme.card }}
+				>
+					<View className="flex-row items-center justify-between">
+						<Text className="text-[16px]" style={{ color: theme.textSecondary }}>
+							Daily reminders
+						</Text>
+						{swiftUI ? (
+							<swiftUI.Host matchContents style={{ minHeight: 32, minWidth: 52 }}>
+								<swiftUI.Switch
+									value={notifications}
+									onValueChange={setNotifications}
+								/>
+							</swiftUI.Host>
+						) : (
+							<Switch value={notifications} onValueChange={setNotifications} />
+						)}
+					</View>
+				</View>
+
+				<View
+					className="mt-3 rounded-2xl p-4"
+					style={{ backgroundColor: theme.card }}
+				>
+					<Text className="text-[13px]" style={{ color: theme.textTertiary }}>
+						Expo UI native controls are enabled on iOS development builds.
+					</Text>
+				</View>
+
+				<View
+					className="mt-3 rounded-2xl p-4"
+					style={{ backgroundColor: theme.card }}
+				>
+					<Text
+						className="mb-3 text-[13px] font-semibold"
+						style={{ color: theme.accentMuted }}
+					>
+						Expo UI Demo
+					</Text>
+					{swiftUI ? (
+						<View className="gap-3">
+							<swiftUI.Host matchContents style={{ minHeight: 44 }}>
+								<swiftUI.Button
+									variant="glass"
+									onPress={() => setIsDemoSheetOpen(true)}
+								>
+									Open bottom sheet
+								</swiftUI.Button>
+							</swiftUI.Host>
+
+							<swiftUI.Host matchContents style={{ minHeight: 44 }}>
+								<swiftUI.Picker
+									label="Focus mode"
+									options={["Light", "Balanced", "Deep"]}
+									selectedIndex={selectedFocusIndex}
+									variant="segmented"
+									onOptionSelected={(event) =>
+										setSelectedFocusIndex(event.nativeEvent.index)
+									}
+								/>
+							</swiftUI.Host>
+
+							<swiftUI.Host matchContents>
+								<swiftUI.BottomSheet
+									isOpened={isDemoSheetOpen}
+									onIsOpenedChange={setIsDemoSheetOpen}
+									presentationDetents={["medium", "large"]}
+									presentationDragIndicator="visible"
+								>
+									<swiftUI.Text size={17} weight="semibold">
+										Native bottom sheet preview
+									</swiftUI.Text>
+								</swiftUI.BottomSheet>
+							</swiftUI.Host>
+						</View>
+					) : (
+						<Text className="text-[14px]" style={{ color: theme.textTertiary }}>
+							Open this in an iOS development build to preview Expo UI controls
+							like bottom sheets and date pickers.
+						</Text>
+					)}
+				</View>
 			</ScrollView>
 		</SafeAreaView>
 	);

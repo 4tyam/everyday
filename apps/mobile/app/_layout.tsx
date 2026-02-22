@@ -51,22 +51,17 @@ function AppShell() {
 		>
 			<NativeTabs.Trigger name="index">
 				<Icon sf={{ default: "house", selected: "house.fill" }} />
-				<Label>Home</Label>
+				<Label hidden />
 			</NativeTabs.Trigger>
 
 			<NativeTabs.Trigger name="trips">
-				<Icon sf={{ default: "airplane", selected: "airplane" }} />
-				<Label>Trips</Label>
-			</NativeTabs.Trigger>
-
-			<NativeTabs.Trigger name="today">
-				<Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
-				<Label>Today</Label>
+				<Icon sf={{ default: "folder", selected: "folder.fill" }} />
+				<Label hidden />
 			</NativeTabs.Trigger>
 
 			<NativeTabs.Trigger name="settings">
 				<Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
-				<Label>Settings</Label>
+				<Label hidden />
 			</NativeTabs.Trigger>
 		</NativeTabs>
 	);

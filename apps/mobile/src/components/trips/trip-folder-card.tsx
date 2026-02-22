@@ -65,6 +65,12 @@ export function TripFolderCard({
 	const isDark = theme.background === "#1c1c1e";
 	const hasImages = imageCount > 0;
 	const title = variant === "create" ? "New Trip" : (name ?? "Trip");
+	const glassShadowStyle = {
+		shadowOpacity: isDark ? 0 : variant === "create" ? 0.06 : 0.1,
+		shadowOffset: { width: 0, height: isDark ? 0 : variant === "create" ? 10 : 12 },
+		shadowRadius: isDark ? 0 : variant === "create" ? 18 : 26,
+		elevation: isDark ? 0 : variant === "create" ? 4 : 8,
+	} as const;
 
 	return (
 		<Pressable
@@ -118,14 +124,8 @@ export function TripFolderCard({
 					<View
 						style={[
 							styles.glassShadow,
-							{
-								zIndex: imageCount + 2,
-								shadowOpacity: isDark
-									? 0.42
-									: variant === "create"
-										? 0.12
-										: 0.17,
-							},
+							{ zIndex: imageCount + 2 },
+							glassShadowStyle,
 						]}
 					>
 						<View
@@ -243,9 +243,6 @@ const styles = StyleSheet.create({
 		right: 0,
 		borderRadius: 20,
 		shadowColor: "#000",
-		shadowOffset: { width: 0, height: 8 },
-		shadowRadius: 60,
-		elevation: 10,
 	},
 	glassContent: {
 		flex: 1,
