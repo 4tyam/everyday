@@ -1,7 +1,9 @@
-import { useRef, useState } from "react";
+import Constants from "expo-constants";
+import { useMemo, useRef, useState } from "react";
 import {
 	Image,
 	PanResponder,
+	Platform,
 	Pressable,
 	ScrollView,
 	Text,
@@ -12,10 +14,22 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { DayMemory } from "../../features/memories/types";
 import { ImageViewer } from "./image-viewer";
 
+type SwiftUIModule = typeof import("@expo/ui/swift-ui");
+
+function loadSwiftUI(): SwiftUIModule | null {
+	try {
+		return require("@expo/ui/swift-ui") as SwiftUIModule;
+	} catch {
+		return null;
+	}
+}
+
 type SelectedDayMemoriesProps = {
 	dateLabel: string;
 	memories: DayMemory[];
 	onAddPress: () => void;
+	onAddFromCamera?: () => void;
+	onAddFromGallery?: () => void;
 	onDeleteMemory: (dayKey: DayMemory["dayKey"], memoryId: string) => void;
 	canAddMemory: boolean;
 	bottomInset?: number;
@@ -89,6 +103,8 @@ export function SelectedDayMemories({
 	dateLabel,
 	memories,
 	onAddPress,
+	onAddFromCamera,
+	onAddFromGallery,
 	onDeleteMemory,
 	canAddMemory,
 	bottomInset = 110,
@@ -103,6 +119,12 @@ export function SelectedDayMemories({
 	onImageViewerVisibilityChange,
 }: SelectedDayMemoriesProps) {
 	const { height } = useWindowDimensions();
+	const canUseExpoUI =
+		Platform.OS === "ios" && Constants.executionEnvironment !== "storeClient";
+	const swiftUI = useMemo(
+		() => (canUseExpoUI ? loadSwiftUI() : null),
+		[canUseExpoUI],
+	);
 	const insets = useSafeAreaInsets();
 	const memoriesViewportHeight =
 		viewportHeight ?? Math.max(260, Math.min(560, height * 0.66));
@@ -187,18 +209,74 @@ export function SelectedDayMemories({
 				</View>
 
 				{canAddMemory ? (
-					<Pressable
-						className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
-						onPress={onAddPress}
-						style={{ backgroundColor: addButtonBgColor }}
-					>
-						<Text
-							className="text-[22px] font-semibold leading-[24px]"
-							style={{ color: addButtonIconColor }}
+					swiftUI && onAddFromCamera && onAddFromGallery ? (
+						<swiftUI.Host matchContents style={{ minHeight: 40, minWidth: 40 }}>
+							<swiftUI.ContextMenu>
+								<swiftUI.ContextMenu.Items>
+									<swiftUI.Button
+										systemImage="photo.on.rectangle"
+										onPress={onAddFromGallery}
+									>
+										Upload from gallery
+									</swiftUI.Button>
+									<swiftUI.Button
+										systemImage="camera"
+										onPress={onAddFromCamera}
+									>
+										Take a photo
+									</swiftUI.Button>
+								</swiftUI.ContextMenu.Items>
+								<swiftUI.ContextMenu.Trigger>
+									<View
+										className="items-center justify-center rounded-full"
+										style={{
+											width: 40,
+											height: 40,
+											backgroundColor: "rgba(255,255,255,0.22)",
+											borderWidth: 1,
+											borderColor: "rgba(255,255,255,0.42)",
+											shadowColor: "#000000",
+											shadowOpacity: 0.18,
+											shadowRadius: 10,
+											shadowOffset: { width: 0, height: 3 },
+											elevation: 4,
+										}}
+									>
+										<Text
+											className="text-[22px] font-medium leading-[24px]"
+											style={{ color: addButtonIconColor }}
+										>
+											+
+										</Text>
+									</View>
+								</swiftUI.ContextMenu.Trigger>
+							</swiftUI.ContextMenu>
+						</swiftUI.Host>
+					) : (
+						<Pressable
+							className="items-center justify-center rounded-full active:opacity-70"
+							onPress={onAddPress}
+							style={{
+								width: 40,
+								height: 40,
+								backgroundColor: "rgba(255,255,255,0.22)",
+								borderWidth: 1,
+								borderColor: "rgba(255,255,255,0.42)",
+								shadowColor: "#000000",
+								shadowOpacity: 0.18,
+								shadowRadius: 10,
+								shadowOffset: { width: 0, height: 3 },
+								elevation: 4,
+							}}
 						>
-							+
-						</Text>
-					</Pressable>
+							<Text
+								className="text-[22px] font-medium leading-[24px]"
+								style={{ color: addButtonIconColor }}
+							>
+								+
+							</Text>
+						</Pressable>
+					)
 				) : null}
 			</View>
 

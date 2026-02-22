@@ -61,7 +61,11 @@ export function AuthScreen({ onSkip }: AuthScreenProps) {
 	};
 
 	return (
-		<ImageBackground source={backgroundImage} resizeMode="cover" style={{ flex: 1 }}>
+		<ImageBackground
+			source={backgroundImage}
+			resizeMode="cover"
+			style={{ flex: 1 }}
+		>
 			<SafeAreaView style={{ flex: 1 }}>
 				<View style={{ flex: 1, paddingHorizontal: 28, paddingBottom: 24 }}>
 					<View style={{ marginTop: 72, alignItems: "center" }}>

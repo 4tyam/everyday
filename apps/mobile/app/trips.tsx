@@ -11,7 +11,10 @@ import {
 	useColorScheme,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+	SafeAreaView,
+	useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { TripDetailSheet } from "../src/components/trips/trip-detail-sheet";
 import { TripFolderCard } from "../src/components/trips/trip-folder-card";
 import { useAuth } from "../src/context/auth-context";
@@ -48,7 +51,9 @@ export default function TripsTab() {
 	const [tripName, setTripName] = useState("");
 	const [draftStartDayKey, setDraftStartDayKey] = useState<DayKey | null>(null);
 	const [draftEndDayKey, setDraftEndDayKey] = useState<DayKey | null>(null);
-	const [activeDateField, setActiveDateField] = useState<"start" | "end">("start");
+	const [activeDateField, setActiveDateField] = useState<"start" | "end">(
+		"start",
+	);
 	const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
 	const [formError, setFormError] = useState<string | null>(null);
 	const [listViewportHeight, setListViewportHeight] = useState(0);
@@ -62,9 +67,11 @@ export default function TripsTab() {
 		createTrip,
 		renameTrip,
 		updateTripDates,
+		deleteTrip,
 		isCreating,
 		isRenaming,
 		isUpdatingTripDates,
+		isDeletingTrip,
 		isLoading,
 		maxEndDayKey,
 	} = useTrips({
@@ -103,7 +110,8 @@ export default function TripsTab() {
 
 		try {
 			const normalizedName =
-				tripName.trim() || buildFallbackTripName(draftStartDayKey, draftEndDayKey);
+				tripName.trim() ||
+				buildFallbackTripName(draftStartDayKey, draftEndDayKey);
 			await createTrip({
 				name: normalizedName,
 				startDayKey: draftStartDayKey,
@@ -111,7 +119,8 @@ export default function TripsTab() {
 			});
 			closeCreateModal();
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Failed to create trip.";
+			const message =
+				error instanceof Error ? error.message : "Failed to create trip.";
 			setFormError(message);
 			Alert.alert("Could not create trip", message);
 		}
@@ -170,7 +179,8 @@ export default function TripsTab() {
 		return marks;
 	}, [draftEndDayKey, draftStartDayKey]);
 
-	const canCreateTrip = draftStartDayKey !== null && draftEndDayKey !== null && !isCreating;
+	const canCreateTrip =
+		draftStartDayKey !== null && draftEndDayKey !== null && !isCreating;
 	const shouldEnableTripsScroll = listContentHeight > listViewportHeight + 1;
 
 	const openTripDetails = (trip: Trip) => {
@@ -184,7 +194,10 @@ export default function TripsTab() {
 	};
 
 	return (
-		<SafeAreaView className="flex-1" style={{ backgroundColor: theme.background }}>
+		<SafeAreaView
+			className="flex-1"
+			style={{ backgroundColor: theme.background }}
+		>
 			<View className="px-5 pb-4 pt-3">
 				<Text
 					className="text-[34px] font-bold tracking-[-0.5px]"
@@ -192,7 +205,10 @@ export default function TripsTab() {
 				>
 					Trips
 				</Text>
-				<Text className="mt-1 text-[15px]" style={{ color: theme.textTertiary }}>
+				<Text
+					className="mt-1 text-[15px]"
+					style={{ color: theme.textTertiary }}
+				>
 					Your memories grouped by trip dates.
 				</Text>
 			</View>
@@ -217,7 +233,11 @@ export default function TripsTab() {
 				) : null}
 
 				<View className="flex-row flex-wrap justify-between">
-					<TripFolderCard variant="create" theme={theme} onPress={openCreateModal} />
+					<TripFolderCard
+						variant="create"
+						theme={theme}
+						onPress={openCreateModal}
+					/>
 
 					{trips.map((trip) => (
 						<TripFolderCard
@@ -238,7 +258,10 @@ export default function TripsTab() {
 				animationType="slide"
 				onRequestClose={closeCreateModal}
 			>
-				<View className="flex-1 justify-end" style={{ backgroundColor: "#00000055" }}>
+				<View
+					className="flex-1 justify-end"
+					style={{ backgroundColor: "#00000055" }}
+				>
 					<SafeAreaView
 						edges={["bottom"]}
 						className="rounded-t-3xl"
@@ -253,18 +276,30 @@ export default function TripsTab() {
 							}}
 						>
 							<View className="mb-2 flex-row items-center justify-between">
-								<Text className="text-[24px] font-semibold" style={{ color: theme.textPrimary }}>
+								<Text
+									className="text-[24px] font-semibold"
+									style={{ color: theme.textPrimary }}
+								>
 									Create trip
 								</Text>
-								<Pressable className="rounded-lg px-2 py-1" onPress={closeCreateModal}>
+								<Pressable
+									className="rounded-lg px-2 py-1"
+									onPress={closeCreateModal}
+								>
 									<Text className="text-[16px]" style={{ color: theme.accent }}>
 										Close
 									</Text>
 								</Pressable>
 							</View>
 
-							<View className="rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
-								<Text className="mb-2 text-[13px] font-medium" style={{ color: theme.textTertiary }}>
+							<View
+								className="rounded-2xl p-4"
+								style={{ backgroundColor: theme.card }}
+							>
+								<Text
+									className="mb-2 text-[13px] font-medium"
+									style={{ color: theme.textTertiary }}
+								>
 									Trip name (optional)
 								</Text>
 								<TextInput
@@ -278,18 +313,34 @@ export default function TripsTab() {
 									placeholder="e.g. NYC weekend"
 									placeholderTextColor={theme.textTertiary}
 									className="rounded-xl px-4 py-3 text-[16px]"
-									style={{ backgroundColor: theme.background, color: theme.textPrimary }}
+									style={{
+										backgroundColor: theme.background,
+										color: theme.textPrimary,
+									}}
 									maxLength={60}
 								/>
 							</View>
 
-							<View className="mt-3 rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
+							<View
+								className="mt-3 rounded-2xl p-4"
+								style={{ backgroundColor: theme.card }}
+							>
 								<View className="mb-3 flex-row items-center justify-between">
-									<Text className="text-[13px] font-medium" style={{ color: theme.textTertiary }}>
+									<Text
+										className="text-[13px] font-medium"
+										style={{ color: theme.textTertiary }}
+									>
 										Dates
 									</Text>
-									<Text className="text-[12px]" style={{ color: theme.textTertiary }}>
-										{formatDayKey(todayDayKey, { month: "short", day: "numeric" })} - {" "}
+									<Text
+										className="text-[12px]"
+										style={{ color: theme.textTertiary }}
+									>
+										{formatDayKey(todayDayKey, {
+											month: "short",
+											day: "numeric",
+										})}{" "}
+										-{" "}
 										{formatDayKey(maxEndDayKey, {
 											month: "short",
 											day: "numeric",
@@ -304,14 +355,24 @@ export default function TripsTab() {
 										onPress={() => setActiveDateField("start")}
 										style={{
 											backgroundColor:
-												activeDateField === "start" ? "#dcecff" : theme.background,
+												activeDateField === "start"
+													? "#dcecff"
+													: theme.background,
 										}}
 									>
-										<Text className="text-[11px] font-semibold uppercase" style={{ color: theme.textTertiary }}>
+										<Text
+											className="text-[11px] font-semibold uppercase"
+											style={{ color: theme.textTertiary }}
+										>
 											Start
 										</Text>
-										<Text className="mt-1 text-[14px] font-semibold" style={{ color: theme.textPrimary }}>
-											{draftStartDayKey ? formatDayKey(draftStartDayKey) : "Select"}
+										<Text
+											className="mt-1 text-[14px] font-semibold"
+											style={{ color: theme.textPrimary }}
+										>
+											{draftStartDayKey
+												? formatDayKey(draftStartDayKey)
+												: "Select"}
 										</Text>
 									</Pressable>
 
@@ -320,13 +381,21 @@ export default function TripsTab() {
 										onPress={() => setActiveDateField("end")}
 										style={{
 											backgroundColor:
-												activeDateField === "end" ? "#dcecff" : theme.background,
+												activeDateField === "end"
+													? "#dcecff"
+													: theme.background,
 										}}
 									>
-										<Text className="text-[11px] font-semibold uppercase" style={{ color: theme.textTertiary }}>
+										<Text
+											className="text-[11px] font-semibold uppercase"
+											style={{ color: theme.textTertiary }}
+										>
 											End
 										</Text>
-										<Text className="mt-1 text-[14px] font-semibold" style={{ color: theme.textPrimary }}>
+										<Text
+											className="mt-1 text-[14px] font-semibold"
+											style={{ color: theme.textPrimary }}
+										>
 											{draftEndDayKey ? formatDayKey(draftEndDayKey) : "Select"}
 										</Text>
 									</Pressable>
@@ -356,7 +425,11 @@ export default function TripsTab() {
 										textMonthFontSize: 20,
 										textDayHeaderFontSize: 12,
 									}}
-									style={{ borderRadius: 14, overflow: "hidden", paddingBottom: 8 }}
+									style={{
+										borderRadius: 14,
+										overflow: "hidden",
+										paddingBottom: 8,
+									}}
 								/>
 							</View>
 
@@ -396,8 +469,10 @@ export default function TripsTab() {
 				onTripUpdated={setSelectedTrip}
 				renameTrip={renameTrip}
 				updateTripDates={updateTripDates}
+				deleteTrip={deleteTrip}
 				isRenaming={isRenaming}
 				isUpdatingTripDates={isUpdatingTripDates}
+				isDeletingTrip={isDeletingTrip}
 			/>
 		</SafeAreaView>
 	);

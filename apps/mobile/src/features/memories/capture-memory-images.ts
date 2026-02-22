@@ -106,6 +106,18 @@ async function pickFromGallery(): Promise<CapturedMemoryAsset[]> {
 	}));
 }
 
+export async function captureMemoryImagesFromCamera(): Promise<
+	CapturedMemoryAsset[]
+> {
+	return captureFromCamera();
+}
+
+export async function captureMemoryImagesFromGallery(): Promise<
+	CapturedMemoryAsset[]
+> {
+	return pickFromGallery();
+}
+
 export async function captureMemoryImages(): Promise<CapturedMemoryAsset[]> {
 	const source = await pickMemorySource();
 	if (!source) {

@@ -1,10 +1,14 @@
+import Constants from "expo-constants";
 import { useMemo, useState } from "react";
 import {
 	ActivityIndicator,
+	ActionSheetIOS,
 	Alert,
 	Dimensions,
 	Image,
 	Modal,
+	PanResponder,
+	Platform,
 	Pressable,
 	ScrollView,
 	StyleSheet,
@@ -16,6 +20,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Calendar } from "react-native-calendars";
 import { SafeAreaView, type EdgeInsets } from "react-native-safe-area-context";
 import { ImageViewer } from "../calendar/image-viewer";
+import ArrowLeftIcon from "../../assets/icons/arrowLeft.svg";
+import IconDotsVertical from "../../assets/icons/IconDotsVertical.svg";
 import {
 	compareDayKeys,
 	formatDayKey,
@@ -31,6 +37,16 @@ const GRID_GAP = 8;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const GRID_ITEM_WIDTH = (SCREEN_WIDTH - GRID_PAD * 2 - GRID_GAP) / 2;
 
+type SwiftUIModule = typeof import("@expo/ui/swift-ui");
+
+function loadSwiftUI(): SwiftUIModule | null {
+	try {
+		return require("@expo/ui/swift-ui") as SwiftUIModule;
+	} catch {
+		return null;
+	}
+}
+
 function mockColorFromUri(uri: string): string {
 	let hash = 0;
 	for (let i = 0; i < uri.length; i += 1) {
@@ -39,6 +55,48 @@ function mockColorFromUri(uri: string): string {
 	}
 	const hue = Math.abs(hash) % 360;
 	return `hsl(${hue}, 55%, 62%)`;
+}
+
+function formatTripRangeLabel(trip: Trip): string {
+	const currentYear = new Date().getFullYear();
+	const startDate = new Date(`${trip.startDayKey}T00:00:00`);
+	const endDate = new Date(`${trip.endDayKey}T00:00:00`);
+	const includeYear =
+		startDate.getFullYear() !== currentYear ||
+		endDate.getFullYear() !== currentYear;
+
+	const startLabel = includeYear
+		? formatDayKey(trip.startDayKey, {
+				month: "short",
+				day: "numeric",
+				year: "numeric",
+			})
+		: formatDayKey(trip.startDayKey, { month: "short", day: "numeric" });
+	const endLabel = includeYear
+		? formatDayKey(trip.endDayKey, {
+				month: "short",
+				day: "numeric",
+				year: "numeric",
+			})
+		: formatDayKey(trip.endDayKey, { month: "short", day: "numeric" });
+
+	return `${startLabel} – ${endLabel}`;
+}
+
+function formatMemoryDateTime(createdAt: number): string {
+	const date = new Date(createdAt);
+	const currentYear = new Date().getFullYear();
+	const includeYear = date.getFullYear() !== currentYear;
+	const dateLabel = new Intl.DateTimeFormat(undefined, {
+		month: "short",
+		day: "numeric",
+		...(includeYear ? { year: "numeric" } : {}),
+	}).format(date);
+	const timeLabel = new Intl.DateTimeFormat(undefined, {
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(date);
+	return `${dateLabel} • ${timeLabel}`;
 }
 
 export type TripDetailSheetProps = {
@@ -56,8 +114,10 @@ export type TripDetailSheetProps = {
 		startDayKey: DayKey;
 		endDayKey: DayKey;
 	}) => Promise<Trip>;
+	deleteTrip: (input: { tripId: string }) => Promise<string>;
 	isRenaming: boolean;
 	isUpdatingTripDates: boolean;
+	isDeletingTrip: boolean;
 };
 
 export function TripDetailSheet({
@@ -71,30 +131,57 @@ export function TripDetailSheet({
 	onTripUpdated,
 	renameTrip,
 	updateTripDates,
+	deleteTrip,
 	isRenaming,
 	isUpdatingTripDates,
+	isDeletingTrip,
 }: TripDetailSheetProps) {
 	const [isTripImageViewerOpen, setIsTripImageViewerOpen] = useState(false);
-	const [selectedTripMemoryId, setSelectedTripMemoryId] = useState<string | null>(
-		null,
-	);
+	const [selectedTripMemoryId, setSelectedTripMemoryId] = useState<
+		string | null
+	>(null);
 	const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
 	const [renameTripName, setRenameTripName] = useState("");
 	const [renameError, setRenameError] = useState<string | null>(null);
 	const [isEditDatesModalOpen, setIsEditDatesModalOpen] = useState(false);
 	const [editStartDayKey, setEditStartDayKey] = useState<DayKey | null>(null);
 	const [editEndDayKey, setEditEndDayKey] = useState<DayKey | null>(null);
-	const [editActiveDateField, setEditActiveDateField] = useState<"start" | "end">(
-		"start",
-	);
+	const [editActiveDateField, setEditActiveDateField] = useState<
+		"start" | "end"
+	>("start");
 	const [editDatesError, setEditDatesError] = useState<string | null>(null);
+	const canUseExpoUI =
+		Platform.OS === "ios" && Constants.executionEnvironment !== "storeClient";
+	const swiftUI = useMemo(
+		() => (canUseExpoUI ? loadSwiftUI() : null),
+		[canUseExpoUI],
+	);
+	const iconColor = isDark ? "#ffffff" : "#111111";
+	const headerControlStyle = {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		backgroundColor: "rgba(255,255,255,0.22)",
+		borderWidth: 1,
+		borderColor: "rgba(255,255,255,0.42)",
+		alignItems: "center" as const,
+		justifyContent: "center" as const,
+		shadowColor: "#000000",
+		shadowOpacity: 0.18,
+		shadowRadius: 10,
+		shadowOffset: { width: 0, height: 3 },
+		elevation: 4,
+	};
 
-	const { memories, totalMemories, isLoading: isTripMemoriesLoading } =
-		useTripMemories({
-			userId: trip ? userId : null,
-			startDayKey: trip?.startDayKey ?? "1970-01-01",
-			endDayKey: trip?.endDayKey ?? "1970-01-01",
-		});
+	const {
+		memories,
+		totalMemories,
+		isLoading: isTripMemoriesLoading,
+	} = useTripMemories({
+		userId: trip ? userId : null,
+		startDayKey: trip?.startDayKey ?? "1970-01-01",
+		endDayKey: trip?.endDayKey ?? "1970-01-01",
+	});
 
 	const closeTripDetails = () => {
 		setIsTripImageViewerOpen(false);
@@ -109,6 +196,32 @@ export function TripDetailSheet({
 		setEditDatesError(null);
 		onClose();
 	};
+
+	const panResponder = useMemo(
+		() =>
+			PanResponder.create({
+				onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+					visible &&
+					!isTripImageViewerOpen &&
+					!isRenameModalOpen &&
+					!isEditDatesModalOpen &&
+					gestureState.dx < -12 &&
+					Math.abs(gestureState.dx) > Math.abs(gestureState.dy) + 6,
+				onMoveShouldSetPanResponder: (_, gestureState) =>
+					visible &&
+					!isTripImageViewerOpen &&
+					!isRenameModalOpen &&
+					!isEditDatesModalOpen &&
+					gestureState.dx < -12 &&
+					Math.abs(gestureState.dx) > Math.abs(gestureState.dy) + 6,
+				onPanResponderRelease: (_, gestureState) => {
+					if (gestureState.dx < -48 && Math.abs(gestureState.dy) < 56) {
+						closeTripDetails();
+					}
+				},
+			}),
+		[visible, isTripImageViewerOpen, isRenameModalOpen, isEditDatesModalOpen],
+	);
 
 	const onTripMemoryPress = (memoryId: string) => {
 		setSelectedTripMemoryId(memoryId);
@@ -187,7 +300,8 @@ export function TripDetailSheet({
 			onTripUpdated(updatedTrip);
 			closeRenameModal();
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Failed to rename trip.";
+			const message =
+				error instanceof Error ? error.message : "Failed to rename trip.";
 			setRenameError(message);
 			Alert.alert("Could not rename trip", message);
 		}
@@ -215,11 +329,73 @@ export function TripDetailSheet({
 		}
 	};
 
+	const onDeleteTripPress = () => {
+		if (!trip || isDeletingTrip) {
+			return;
+		}
+		Alert.alert(
+			"Delete trip?",
+			"This removes the trip, but keeps your memories.",
+			[
+				{ text: "Cancel", style: "cancel" },
+				{
+					text: "Delete",
+					style: "destructive",
+					onPress: () => {
+						void (async () => {
+							try {
+								await deleteTrip({ tripId: trip.id });
+								closeTripDetails();
+							} catch (error) {
+								const message =
+									error instanceof Error
+										? error.message
+										: "Failed to delete trip.";
+								Alert.alert("Could not delete trip", message);
+							}
+						})();
+					},
+				},
+			],
+		);
+	};
+	const onShareTripPress = () => {
+		Alert.alert("Share", "Coming soon.");
+	};
+	const onOpenTripMenu = () => {
+		if (Platform.OS === "ios") {
+			ActionSheetIOS.showActionSheetWithOptions(
+				{
+					options: ["Share", "Delete", "Cancel"],
+					cancelButtonIndex: 2,
+					destructiveButtonIndex: 1,
+				},
+				(buttonIndex) => {
+					if (buttonIndex === 0) {
+						onShareTripPress();
+						return;
+					}
+					if (buttonIndex === 1) {
+						onDeleteTripPress();
+					}
+				},
+			);
+			return;
+		}
+		Alert.alert("Trip options", undefined, [
+			{ text: "Share", onPress: onShareTripPress },
+			{ text: "Delete", style: "destructive", onPress: onDeleteTripPress },
+			{ text: "Cancel", style: "cancel" },
+		]);
+	};
+
 	const tripImageViewerInitialIndex = useMemo(() => {
 		if (!selectedTripMemoryId) {
 			return 0;
 		}
-		const index = memories.findIndex((memory) => memory.id === selectedTripMemoryId);
+		const index = memories.findIndex(
+			(memory) => memory.id === selectedTripMemoryId,
+		);
 		return index < 0 ? 0 : index;
 	}, [memories, selectedTripMemoryId]);
 
@@ -264,8 +440,16 @@ export function TripDetailSheet({
 		editStartDayKey !== null && editEndDayKey !== null && !isUpdatingTripDates;
 
 	return (
-		<Modal visible={visible} animationType="slide" onRequestClose={closeTripDetails}>
-			<View className="flex-1" style={{ backgroundColor: theme.background }}>
+		<Modal
+			visible={visible}
+			animationType="slide"
+			onRequestClose={closeTripDetails}
+		>
+			<View
+				className="flex-1"
+				style={{ backgroundColor: theme.background }}
+				{...panResponder.panHandlers}
+			>
 				<View style={styles.hero}>
 					{oldestTripMemory && !oldestTripMemory.uri.startsWith("mock://") ? (
 						<Image
@@ -295,29 +479,86 @@ export function TripDetailSheet({
 							styles.closeBtn,
 							{
 								top: insets.top + 8,
-								backgroundColor: isDark
-									? "rgba(255,255,255,0.15)"
-									: "rgba(0,0,0,0.08)",
+								...headerControlStyle,
 							},
 						]}
 						onPress={closeTripDetails}
+						disabled={isDeletingTrip}
 						className="active:opacity-70"
 					>
-						<Text
-							style={{
-								fontSize: 17,
-								fontWeight: "600",
-								color: isDark ? "#fff" : "#1c1c1e",
-							}}
-						>
-							✕
-						</Text>
+						<ArrowLeftIcon color={iconColor} height={15} width={15} />
 					</Pressable>
 
+					{swiftUI ? (
+						<swiftUI.Host
+							matchContents
+							style={{
+								minHeight: 40,
+								minWidth: 40,
+								position: "absolute",
+								right: 16,
+								top: insets.top + 8,
+							}}
+						>
+							<swiftUI.ContextMenu>
+								<swiftUI.ContextMenu.Items>
+									<swiftUI.Button
+										systemImage="square.and.arrow.up"
+										onPress={onShareTripPress}
+									>
+										Share
+									</swiftUI.Button>
+									<swiftUI.Button
+										systemImage="trash"
+										onPress={onDeleteTripPress}
+									>
+										Delete
+									</swiftUI.Button>
+								</swiftUI.ContextMenu.Items>
+								<swiftUI.ContextMenu.Trigger>
+									<View
+										style={{
+											...headerControlStyle,
+											opacity: isDeletingTrip ? 0.6 : 1,
+										}}
+									>
+										<IconDotsVertical
+											color={iconColor}
+											height={18}
+											width={18}
+										/>
+									</View>
+								</swiftUI.ContextMenu.Trigger>
+							</swiftUI.ContextMenu>
+						</swiftUI.Host>
+					) : (
+						<Pressable
+							style={[
+								styles.menuBtn,
+								{
+									top: insets.top + 8,
+									...headerControlStyle,
+									opacity: isDeletingTrip ? 0.6 : 1,
+								},
+							]}
+							onPress={onOpenTripMenu}
+							disabled={isDeletingTrip}
+							className="active:opacity-70"
+						>
+							<IconDotsVertical color={iconColor} height={18} width={18} />
+						</Pressable>
+					)}
+
 					<View style={styles.heroContent}>
-						<Pressable onPress={openRenameModal} className="self-start active:opacity-80">
+						<Pressable
+							onPress={openRenameModal}
+							className="self-start active:opacity-80"
+						>
 							<Text
-								style={[styles.heroTitle, { color: isDark ? "#f2f2f7" : "#111" }]}
+								style={[
+									styles.heroTitle,
+									{ color: isDark ? "#f2f2f7" : "#111" },
+								]}
 								numberOfLines={2}
 							>
 								{trip?.name ?? "Trip"}
@@ -343,16 +584,7 @@ export function TripDetailSheet({
 											{ color: isDark ? "#a1a1a6" : "#6e6e73" },
 										]}
 									>
-										{formatDayKey(trip.startDayKey, {
-											month: "short",
-											day: "numeric",
-										})}{" "}
-										–{" "}
-										{formatDayKey(trip.endDayKey, {
-											month: "short",
-											day: "numeric",
-											year: "numeric",
-										})}
+										{formatTripRangeLabel(trip)}
 									</Text>
 								</Pressable>
 							)}
@@ -425,12 +657,11 @@ export function TripDetailSheet({
 											{
 												marginRight: isLeft ? GRID_GAP / 2 : 0,
 												marginLeft: isLeft ? 0 : GRID_GAP / 2,
-												backgroundColor: isDark ? "#2c2c2e" : "#f2f2f7",
 											},
 										]}
 									>
 										<Pressable
-											style={{ width: "100%", height: "100%" }}
+											style={styles.gridImageWrap}
 											onPress={() => onTripMemoryPress(memory.id)}
 										>
 											{memory.uri.startsWith("mock://") ? (
@@ -461,6 +692,15 @@ export function TripDetailSheet({
 												/>
 											)}
 										</Pressable>
+										<Text
+											numberOfLines={1}
+											style={[
+												styles.memoryMetaText,
+												{ color: theme.textTertiary },
+											]}
+										>
+											{formatMemoryDateTime(memory.createdAt)}
+										</Text>
 									</View>
 								);
 							})}
@@ -493,7 +733,10 @@ export function TripDetailSheet({
 							className="w-full rounded-2xl p-4"
 							style={{ backgroundColor: theme.background, maxWidth: 420 }}
 						>
-							<Text className="text-[20px] font-semibold" style={{ color: theme.textPrimary }}>
+							<Text
+								className="text-[20px] font-semibold"
+								style={{ color: theme.textPrimary }}
+							>
 								Rename trip
 							</Text>
 							<TextInput
@@ -507,7 +750,10 @@ export function TripDetailSheet({
 								placeholder="Trip name"
 								placeholderTextColor={theme.textTertiary}
 								className="mt-3 rounded-xl px-4 py-3 text-[16px]"
-								style={{ backgroundColor: theme.card, color: theme.textPrimary }}
+								style={{
+									backgroundColor: theme.card,
+									color: theme.textPrimary,
+								}}
 								autoFocus
 								maxLength={60}
 							/>
@@ -553,7 +799,10 @@ export function TripDetailSheet({
 					animationType="slide"
 					onRequestClose={closeEditDatesModal}
 				>
-					<View className="flex-1 justify-end" style={{ backgroundColor: "#00000055" }}>
+					<View
+						className="flex-1 justify-end"
+						style={{ backgroundColor: "#00000055" }}
+					>
 						<SafeAreaView
 							edges={["bottom"]}
 							className="rounded-t-3xl"
@@ -568,31 +817,53 @@ export function TripDetailSheet({
 								}}
 							>
 								<View className="mb-2 flex-row items-center justify-between">
-									<Text className="text-[24px] font-semibold" style={{ color: theme.textPrimary }}>
+									<Text
+										className="text-[24px] font-semibold"
+										style={{ color: theme.textPrimary }}
+									>
 										Edit dates
 									</Text>
-									<Pressable className="rounded-lg px-2 py-1" onPress={closeEditDatesModal}>
-										<Text className="text-[16px]" style={{ color: theme.accent }}>
+									<Pressable
+										className="rounded-lg px-2 py-1"
+										onPress={closeEditDatesModal}
+									>
+										<Text
+											className="text-[16px]"
+											style={{ color: theme.accent }}
+										>
 											Close
 										</Text>
 									</Pressable>
 								</View>
 
-								<View className="rounded-2xl p-4" style={{ backgroundColor: theme.card }}>
+								<View
+									className="rounded-2xl p-4"
+									style={{ backgroundColor: theme.card }}
+								>
 									<View className="mb-3 flex-row gap-2">
 										<Pressable
 											className="flex-1 rounded-xl px-3 py-2"
 											onPress={() => setEditActiveDateField("start")}
 											style={{
 												backgroundColor:
-													editActiveDateField === "start" ? "#dcecff" : theme.background,
+													editActiveDateField === "start"
+														? "#dcecff"
+														: theme.background,
 											}}
 										>
-											<Text className="text-[11px] font-semibold uppercase" style={{ color: theme.textTertiary }}>
+											<Text
+												className="text-[11px] font-semibold uppercase"
+												style={{ color: theme.textTertiary }}
+											>
 												Start
 											</Text>
-											<Text className="mt-1 text-[14px] font-semibold" style={{ color: theme.textPrimary }}>
-												{editStartDayKey ? formatDayKey(editStartDayKey) : "Select"}
+											<Text
+												className="mt-1 text-[14px] font-semibold"
+												style={{ color: theme.textPrimary }}
+											>
+												{editStartDayKey
+													? formatDayKey(editStartDayKey)
+													: "Select"}
 											</Text>
 										</Pressable>
 
@@ -601,13 +872,21 @@ export function TripDetailSheet({
 											onPress={() => setEditActiveDateField("end")}
 											style={{
 												backgroundColor:
-													editActiveDateField === "end" ? "#dcecff" : theme.background,
+													editActiveDateField === "end"
+														? "#dcecff"
+														: theme.background,
 											}}
 										>
-											<Text className="text-[11px] font-semibold uppercase" style={{ color: theme.textTertiary }}>
+											<Text
+												className="text-[11px] font-semibold uppercase"
+												style={{ color: theme.textTertiary }}
+											>
 												End
 											</Text>
-											<Text className="mt-1 text-[14px] font-semibold" style={{ color: theme.textPrimary }}>
+											<Text
+												className="mt-1 text-[14px] font-semibold"
+												style={{ color: theme.textPrimary }}
+											>
 												{editEndDayKey ? formatDayKey(editEndDayKey) : "Select"}
 											</Text>
 										</Pressable>
@@ -635,12 +914,19 @@ export function TripDetailSheet({
 											textMonthFontSize: 20,
 											textDayHeaderFontSize: 12,
 										}}
-										style={{ borderRadius: 14, overflow: "hidden", paddingBottom: 8 }}
+										style={{
+											borderRadius: 14,
+											overflow: "hidden",
+											paddingBottom: 8,
+										}}
 									/>
 								</View>
 
 								{editDatesError ? (
-									<Text className="mt-3 text-[13px]" style={{ color: "#b42318" }}>
+									<Text
+										className="mt-3 text-[13px]"
+										style={{ color: "#b42318" }}
+									>
 										{editDatesError}
 									</Text>
 								) : null}
@@ -651,14 +937,18 @@ export function TripDetailSheet({
 										style={{ backgroundColor: theme.card }}
 										onPress={closeEditDatesModal}
 									>
-										<Text style={{ color: theme.textPrimary, fontWeight: "600" }}>
+										<Text
+											style={{ color: theme.textPrimary, fontWeight: "600" }}
+										>
 											Cancel
 										</Text>
 									</Pressable>
 									<Pressable
 										className="rounded-xl px-4 py-2.5 active:opacity-80"
 										style={{
-											backgroundColor: canSaveTripDates ? theme.accent : "#b7c5d7",
+											backgroundColor: canSaveTripDates
+												? theme.accent
+												: "#b7c5d7",
 										}}
 										disabled={!canSaveTripDates}
 										onPress={() => {
@@ -687,10 +977,16 @@ const styles = StyleSheet.create({
 	},
 	closeBtn: {
 		position: "absolute",
-		right: 16,
+		left: 16,
 		width: 34,
 		height: 34,
 		borderRadius: 17,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	menuBtn: {
+		position: "absolute",
+		right: 16,
 		alignItems: "center",
 		justifyContent: "center",
 	},
@@ -734,9 +1030,20 @@ const styles = StyleSheet.create({
 	},
 	gridItem: {
 		width: GRID_ITEM_WIDTH,
+		height: GRID_ITEM_WIDTH / 0.75 + 34,
+		borderRadius: 16,
+		marginBottom: GRID_GAP,
+	},
+	gridImageWrap: {
+		width: "100%",
 		height: GRID_ITEM_WIDTH / 0.75,
 		borderRadius: 16,
 		overflow: "hidden",
-		marginBottom: GRID_GAP,
+	},
+	memoryMetaText: {
+		marginTop: 6,
+		fontSize: 12,
+		fontWeight: "500",
+		paddingHorizontal: 2,
 	},
 });

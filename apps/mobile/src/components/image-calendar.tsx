@@ -1,8 +1,10 @@
+import Constants from "expo-constants";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	Animated,
 	Easing,
 	PanResponder,
+	Platform,
 	Pressable,
 	ScrollView,
 	Text,
@@ -15,7 +17,11 @@ import CalendarToIcon from "../assets/icons/calendar2.svg";
 import { DayCell } from "./calendar/day-cell";
 import { SelectedDayMemories } from "./calendar/selected-day-memories";
 import { useAuth } from "../context/auth-context";
-import { captureMemoryImages } from "../features/memories/capture-memory-images";
+import {
+	captureMemoryImages,
+	captureMemoryImagesFromCamera,
+	captureMemoryImagesFromGallery,
+} from "../features/memories/capture-memory-images";
 import {
 	startOfLocalDay,
 	toDayKey,
@@ -54,6 +60,16 @@ const memoryDotPalette = [
 	"#8b5cf6", // violet
 	"#FF00FF", // pink
 ];
+
+type SwiftUIModule = typeof import("@expo/ui/swift-ui");
+
+function loadSwiftUI(): SwiftUIModule | null {
+	try {
+		return require("@expo/ui/swift-ui") as SwiftUIModule;
+	} catch {
+		return null;
+	}
+}
 
 function parseMonthKey(monthKey: string): { year: number; month: number } {
 	const [yearRaw, monthRaw] = monthKey.split("-");
@@ -226,6 +242,12 @@ export function ImageCalendar() {
 	const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 	const colorScheme = useColorScheme();
 	const theme = getTheme(colorScheme);
+	const canUseExpoUI =
+		Platform.OS === "ios" && Constants.executionEnvironment !== "storeClient";
+	const swiftUI = useMemo(
+		() => (canUseExpoUI ? loadSwiftUI() : null),
+		[canUseExpoUI],
+	);
 	const todayDate = now;
 	const todayKey = toLocalDayKey(todayDate);
 	const todayYear = todayDate.getFullYear();
@@ -240,16 +262,18 @@ export function ImageCalendar() {
 	const isPreviousDayUploadEnabled = todayDate.getHours() < 5;
 	const actionBlue = "#0a84ff";
 	const filledBlueBackground = colorScheme === "dark" ? "#16324d" : "#dcecff";
+	const addButtonIconColor = colorScheme === "dark" ? "#ffffff" : "#111111";
 	const todayCircleColor = actionBlue;
 	const selectedDayBackgroundColor = filledBlueBackground;
 	const calendarIconColor =
 		colorScheme === "dark" ? "#ffffff" : theme.textPrimary;
-	const { addMemories, getMemories, memoriesByDay, removeMemory } = useDayMemories({
-		userId: user?.id ?? null,
-		visibleMonthKey: visibleMonth,
-		todayDayKey: todayKey,
-		previousDayKey,
-	});
+	const { addMemories, getMemories, memoriesByDay, removeMemory } =
+		useDayMemories({
+			userId: user?.id ?? null,
+			visibleMonthKey: visibleMonth,
+			todayDayKey: todayKey,
+			previousDayKey,
+		});
 	const { year: visibleYear, month: visibleMonthNumber } =
 		parseMonthKey(visibleMonth);
 	const { year: minimumYear, month: minimumMonthNumber } =
@@ -549,7 +573,9 @@ export function ImageCalendar() {
 			const dayColors: string[] = [];
 
 			for (let index = 0; index < visibleDotCount; index += 1) {
-				dayColors.push(memoryDotPalette[paletteCursor % memoryDotPalette.length]);
+				dayColors.push(
+					memoryDotPalette[paletteCursor % memoryDotPalette.length],
+				);
 				paletteCursor += 1;
 			}
 
@@ -679,12 +705,38 @@ export function ImageCalendar() {
 		}
 		addMemories(dayKey, imageAssets);
 	};
+	const onAddMemoryFromCameraForDay = async (dayKey: DayKey) => {
+		const imageAssets = await captureMemoryImagesFromCamera();
+		if (imageAssets.length === 0) {
+			return;
+		}
+		addMemories(dayKey, imageAssets);
+	};
+	const onAddMemoryFromGalleryForDay = async (dayKey: DayKey) => {
+		const imageAssets = await captureMemoryImagesFromGallery();
+		if (imageAssets.length === 0) {
+			return;
+		}
+		addMemories(dayKey, imageAssets);
+	};
 
 	const onAddTodayMemoryPress = () => {
 		void onAddMemoryPressForDay(currentDayKey);
 	};
+	const onAddTodayMemoryFromCameraPress = () => {
+		void onAddMemoryFromCameraForDay(currentDayKey);
+	};
+	const onAddTodayMemoryFromGalleryPress = () => {
+		void onAddMemoryFromGalleryForDay(currentDayKey);
+	};
 	const onAddPreviousDayMemoryPress = () => {
 		void onAddMemoryPressForDay(previousDayKey);
+	};
+	const onAddPreviousDayMemoryFromCameraPress = () => {
+		void onAddMemoryFromCameraForDay(previousDayKey);
+	};
+	const onAddPreviousDayMemoryFromGalleryPress = () => {
+		void onAddMemoryFromGalleryForDay(previousDayKey);
 	};
 	const onDeleteMemoryPress = (dayKey: DayKey, memoryId: string) => {
 		removeMemory(dayKey, memoryId);
@@ -714,12 +766,17 @@ export function ImageCalendar() {
 		selectedDay && isSelectedDayPrevious && canAddToPreviousDay
 			? onAddPreviousDayMemoryPress
 			: onAddTodayMemoryPress;
+	const onActiveAddMemoryFromCameraPress =
+		selectedDay && isSelectedDayPrevious && canAddToPreviousDay
+			? onAddPreviousDayMemoryFromCameraPress
+			: onAddTodayMemoryFromCameraPress;
+	const onActiveAddMemoryFromGalleryPress =
+		selectedDay && isSelectedDayPrevious && canAddToPreviousDay
+			? onAddPreviousDayMemoryFromGalleryPress
+			: onAddTodayMemoryFromGalleryPress;
 
 	return (
-		<View
-			className="px-4 pb-5 pt-5"
-			style={{ backgroundColor: "transparent" }}
-		>
+		<View className="px-4 pb-5 pt-5" style={{ backgroundColor: "transparent" }}>
 			<View className="mb-2 flex-row items-center justify-between px-1">
 				<View className="flex-row items-center">
 					{!isYearOverviewOpen ? (
@@ -1071,6 +1128,8 @@ export function ImageCalendar() {
 										dateLabel={activeDateLabel}
 										memories={activeMemories}
 										onAddPress={onActiveAddMemoryPress}
+										onAddFromCamera={onActiveAddMemoryFromCameraPress}
+										onAddFromGallery={onActiveAddMemoryFromGalleryPress}
 										onDeleteMemory={onDeleteMemoryPress}
 										canAddMemory={activeCanAddMemory}
 										onScrollDown={onActiveScrollDown}
@@ -1082,23 +1141,80 @@ export function ImageCalendar() {
 										textSecondary={theme.textSecondary}
 										cardColor={theme.card}
 										addButtonBgColor={selectedDayBackgroundColor}
-										addButtonIconColor={actionBlue}
+										addButtonIconColor={addButtonIconColor}
 									/>
 								</Animated.View>
 							) : isViewingCurrentMonth ? (
 								<View className="items-center pt-10">
-									<Pressable
-										className="h-12 w-12 items-center justify-center rounded-full active:opacity-70"
-										onPress={onAddTodayMemoryPress}
-										style={{ backgroundColor: selectedDayBackgroundColor }}
-									>
-										<Text
-											className="text-[28px] font-semibold leading-[30px]"
-											style={{ color: actionBlue }}
+									{swiftUI ? (
+										<swiftUI.Host
+											matchContents
+											style={{ minHeight: 52, minWidth: 52 }}
 										>
-											+
-										</Text>
-									</Pressable>
+											<swiftUI.ContextMenu>
+												<swiftUI.ContextMenu.Items>
+													<swiftUI.Button
+														systemImage="photo.on.rectangle"
+														onPress={onAddTodayMemoryFromGalleryPress}
+													>
+														Upload from gallery
+													</swiftUI.Button>
+													<swiftUI.Button
+														systemImage="camera"
+														onPress={onAddTodayMemoryFromCameraPress}
+													>
+														Take a photo
+													</swiftUI.Button>
+												</swiftUI.ContextMenu.Items>
+												<swiftUI.ContextMenu.Trigger>
+													<View
+														className="items-center justify-center rounded-full"
+														style={{
+															width: 52,
+															height: 52,
+															backgroundColor: "rgba(255,255,255,0.22)",
+															borderWidth: 1,
+															borderColor: "rgba(255,255,255,0.42)",
+															shadowColor: "#000000",
+															shadowOpacity: 0.18,
+															shadowRadius: 10,
+															shadowOffset: { width: 0, height: 3 },
+															elevation: 4,
+														}}
+													>
+														<Text
+															className="text-[28px] font-medium leading-[30px]"
+															style={{ color: addButtonIconColor }}
+														>
+															+
+														</Text>
+													</View>
+												</swiftUI.ContextMenu.Trigger>
+											</swiftUI.ContextMenu>
+										</swiftUI.Host>
+									) : (
+										<Pressable
+											className="h-12 w-12 items-center justify-center rounded-full active:opacity-70"
+											onPress={onAddTodayMemoryPress}
+											style={{
+												backgroundColor: "rgba(255,255,255,0.22)",
+												borderWidth: 1,
+												borderColor: "rgba(255,255,255,0.42)",
+												shadowColor: "#000000",
+												shadowOpacity: 0.18,
+												shadowRadius: 10,
+												shadowOffset: { width: 0, height: 3 },
+												elevation: 4,
+											}}
+										>
+											<Text
+												className="text-[28px] font-medium leading-[30px]"
+												style={{ color: addButtonIconColor }}
+											>
+												+
+											</Text>
+										</Pressable>
+									)}
 								</View>
 							) : null}
 						</Animated.View>

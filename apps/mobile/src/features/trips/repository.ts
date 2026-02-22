@@ -218,6 +218,20 @@ export async function updateTripDates(params: {
 	};
 }
 
+export async function deleteTrip(params: {
+	userId: string;
+	tripId: TripId;
+}): Promise<void> {
+	const { userId, tripId } = params;
+	const db = await getMemoriesDb();
+	await db.runAsync(
+		`DELETE FROM trips
+		WHERE id = ? AND user_id = ?`,
+		tripId,
+		userId,
+	);
+}
+
 export async function listMemoriesByDayRange(
 	userId: string,
 	startDayKey: DayKey,

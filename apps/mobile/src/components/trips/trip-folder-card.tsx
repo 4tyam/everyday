@@ -58,7 +58,8 @@ export function TripFolderCard({
 }: TripFolderCardProps) {
 	const safePreviews = previews ?? [];
 	const safeMemoryCount = memoryCount ?? 0;
-	const imageCount = variant === "create" ? 0 : Math.min(safePreviews.length, 4);
+	const imageCount =
+		variant === "create" ? 0 : Math.min(safePreviews.length, 4);
 	const fanLayouts = FAN_LAYOUTS[imageCount] ?? [];
 	const previewStack = safePreviews.slice(0, 4).reverse();
 	const isDark = theme.background === "#1c1c1e";
@@ -99,8 +100,7 @@ export function TripFolderCard({
 												styles.fanImageInner,
 												{
 													backgroundColor:
-														preview.dominantColor ??
-														hashColor(preview.uri),
+														preview.dominantColor ?? hashColor(preview.uri),
 												},
 											]}
 										/>
@@ -120,7 +120,11 @@ export function TripFolderCard({
 							styles.glassShadow,
 							{
 								zIndex: imageCount + 2,
-								shadowOpacity: isDark ? 0.42 : variant === "create" ? 0.12 : 0.17,
+								shadowOpacity: isDark
+									? 0.42
+									: variant === "create"
+										? 0.12
+										: 0.17,
 							},
 						]}
 					>
@@ -164,15 +168,14 @@ export function TripFolderCard({
 										},
 									]}
 								>
-									<Text style={[styles.plusText, { color: theme.accent }]}>+</Text>
+									<Text style={[styles.plusText, { color: theme.accent }]}>
+										+
+									</Text>
 								</View>
 							) : null}
 							<View style={styles.glassContent}>
 								<Text
-									style={[
-										styles.titleText,
-										{ color: theme.textPrimary },
-									]}
+									style={[styles.titleText, { color: theme.textPrimary }]}
 									numberOfLines={1}
 								>
 									{title}
@@ -189,10 +192,7 @@ export function TripFolderCard({
 										]}
 									>
 										<Text
-											style={[
-												styles.countText,
-												{ color: theme.textTertiary },
-											]}
+											style={[styles.countText, { color: theme.textTertiary }]}
 										>
 											{safeMemoryCount}{" "}
 											{safeMemoryCount === 1 ? "memory" : "memories"}

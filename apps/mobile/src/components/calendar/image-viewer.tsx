@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import Constants from "expo-constants";
+import { Directory, File, Paths } from "expo-file-system";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	ActionSheetIOS,
 	Alert,
@@ -16,11 +18,39 @@ import {
 	View,
 	useWindowDimensions,
 } from "react-native";
-import SaveIcon from "../../assets/icons/save.svg";
-import ShareIcon from "../../assets/icons/share.svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import TrashIcon from "../../assets/icons/trash.svg";
+import ArrowLeftIcon from "../../assets/icons/arrowLeft.svg";
+import IconDotsVertical from "../../assets/icons/IconDotsVertical.svg";
 import type { DayMemory } from "../../features/memories/types";
+
+type SwiftUIModule = typeof import("@expo/ui/swift-ui");
+type ExpoMediaLibraryModule = {
+	getPermissionsAsync: () => Promise<{
+		status: "granted" | "denied" | "undetermined";
+		canAskAgain?: boolean;
+	}>;
+	requestPermissionsAsync: () => Promise<{
+		status: "granted" | "denied" | "undetermined";
+		canAskAgain?: boolean;
+	}>;
+	saveToLibraryAsync: (localUri: string) => Promise<void>;
+};
+
+function loadSwiftUI(): SwiftUIModule | null {
+	try {
+		return require("@expo/ui/swift-ui") as SwiftUIModule;
+	} catch {
+		return null;
+	}
+}
+
+function loadExpoMediaLibrary(): ExpoMediaLibraryModule | null {
+	try {
+		return require("expo-media-library") as ExpoMediaLibraryModule;
+	} catch {
+		return null;
+	}
+}
 
 type ImageViewerProps = {
 	visible: boolean;
@@ -32,6 +62,22 @@ type ImageViewerProps = {
 	embedded?: boolean;
 };
 
+function formatMemoryDateTime(createdAt: number): string {
+	const date = new Date(createdAt);
+	const currentYear = new Date().getFullYear();
+	const includeYear = date.getFullYear() !== currentYear;
+	const dateLabel = new Intl.DateTimeFormat(undefined, {
+		month: "short",
+		day: "numeric",
+		...(includeYear ? { year: "numeric" } : {}),
+	}).format(date);
+	const timeLabel = new Intl.DateTimeFormat(undefined, {
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(date);
+	return `${dateLabel} • ${timeLabel}`;
+}
+
 function mockColorFromUri(uri: string): string {
 	let hash = 0;
 	for (let i = 0; i < uri.length; i += 1) {
@@ -40,6 +86,35 @@ function mockColorFromUri(uri: string): string {
 	}
 	const hue = Math.abs(hash) % 360;
 	return `hsl(${hue}, 55%, 62%)`;
+}
+
+function getUriExtension(uri: string): string {
+	const normalized = uri.split("?")[0] ?? uri;
+	const dotIndex = normalized.lastIndexOf(".");
+	if (dotIndex <= 0 || dotIndex === normalized.length - 1) {
+		return "jpg";
+	}
+	return normalized.slice(dotIndex + 1).toLowerCase();
+}
+
+function buildShareFileName(memory: DayMemory): string {
+	const date = new Date(memory.createdAt);
+	const monthShort = [
+		"Jan",
+		"Feb",
+		"Mar",
+		"Apr",
+		"May",
+		"Jun",
+		"Jul",
+		"Aug",
+		"Sep",
+		"Oct",
+		"Nov",
+		"Dec",
+	][date.getMonth()];
+	const day = date.getDate();
+	return `everyday Memory - ${monthShort} ${day}.${getUriExtension(memory.uri)}`;
 }
 
 function ViewerMemorySlide({
@@ -85,7 +160,10 @@ function ViewerMemorySlide({
 	}, [isLoaded, isMock, pulseOpacity]);
 
 	return (
-		<Pressable className="items-center justify-center" style={{ width, height }}>
+		<Pressable
+			className="items-center justify-center"
+			style={{ width, height }}
+		>
 			{isMock ? (
 				<View
 					className="items-center justify-center rounded-2xl"
@@ -165,11 +243,35 @@ export function ImageViewer({
 	const { width, height } = useWindowDimensions();
 	const colorScheme = useColorScheme();
 	const isDark = colorScheme === "dark";
+	const iconColor = isDark ? "#ffffff" : "#111111";
 	const insets = useSafeAreaInsets();
+	const topControlSize = 40;
+	const topControlStyle = {
+		width: topControlSize,
+		height: topControlSize,
+		borderRadius: topControlSize / 2,
+		backgroundColor: "rgba(255,255,255,0.22)",
+		borderWidth: 1,
+		borderColor: "rgba(255,255,255,0.44)",
+		alignItems: "center" as const,
+		justifyContent: "center" as const,
+		shadowColor: "#000000",
+		shadowOpacity: 0.18,
+		shadowRadius: 10,
+		shadowOffset: { width: 0, height: 3 },
+		elevation: 4,
+	};
+	const canUseExpoUI =
+		Platform.OS === "ios" && Constants.executionEnvironment !== "storeClient";
+	const swiftUI = useMemo(
+		() => (canUseExpoUI ? loadSwiftUI() : null),
+		[canUseExpoUI],
+	);
 	const listRef = useRef<FlatList<DayMemory> | null>(null);
 	const currentIndexRef = useRef(0);
 	const didInitRef = useRef(false);
 	const wasVisibleRef = useRef(false);
+	const [currentIndex, setCurrentIndex] = useState(0);
 
 	const prefetchAroundIndex = (centerIndex: number) => {
 		const start = Math.max(0, centerIndex - 2);
@@ -215,6 +317,7 @@ export function ImageViewer({
 		wasVisibleRef.current = true;
 		const index = Math.max(0, Math.min(initialIndex, memories.length - 1));
 		currentIndexRef.current = index;
+		setCurrentIndex(index);
 		didInitRef.current = true;
 		const timer = setTimeout(() => {
 			listRef.current?.scrollToIndex({ index, animated: false });
@@ -231,6 +334,7 @@ export function ImageViewer({
 			Math.min(currentIndexRef.current, memories.length - 1),
 		);
 		currentIndexRef.current = clampedIndex;
+		setCurrentIndex(clampedIndex);
 		listRef.current?.scrollToIndex({ index: clampedIndex, animated: false });
 	}, [memories.length, visible]);
 
@@ -239,7 +343,9 @@ export function ImageViewer({
 			return;
 		}
 		// Warm nearby/fullscreen candidates early to reduce first-open blank time.
-		prefetchAroundIndex(Math.max(0, Math.min(initialIndex, memories.length - 1)));
+		prefetchAroundIndex(
+			Math.max(0, Math.min(initialIndex, memories.length - 1)),
+		);
 	}, [initialIndex, memories, visible]);
 
 	const onDeleteCurrentImage = () => {
@@ -267,7 +373,31 @@ export function ImageViewer({
 		if (!memory) {
 			return;
 		}
-		await Share.share({ url: memory.uri });
+		if (memory.uri.startsWith("mock://")) {
+			Alert.alert(
+				"Share unavailable",
+				"This placeholder memory cannot be shared.",
+			);
+			return;
+		}
+		let shareUri = memory.uri;
+		try {
+			const shareDir = new Directory(Paths.cache, "share");
+			shareDir.create({ idempotent: true, intermediates: true });
+			const destination = new File(shareDir, buildShareFileName(memory));
+			if (destination.exists) {
+				destination.delete();
+			}
+			const source = new File(memory.uri);
+			source.copy(destination);
+			shareUri = destination.uri;
+		} catch {
+			// Best-effort copy for nicer share name; fallback to original URI.
+		}
+		await Share.share({
+			url: shareUri,
+			title: "Memory from Everyday",
+		});
 	};
 
 	const onSaveCurrentImage = async () => {
@@ -275,17 +405,98 @@ export function ImageViewer({
 		if (!memory) {
 			return;
 		}
-
-		if (Platform.OS === "ios") {
-			ActionSheetIOS.showShareActionSheetWithOptions(
-				{ url: memory.uri },
-				() => {},
-				() => {},
+		if (memory.uri.startsWith("mock://")) {
+			Alert.alert(
+				"Download unavailable",
+				"This placeholder memory cannot be saved.",
 			);
 			return;
 		}
 
-		await Share.share({ url: memory.uri });
+		const mediaLibrary = loadExpoMediaLibrary();
+		if (!mediaLibrary) {
+			Alert.alert(
+				"Download failed",
+				"Couldn't save this image to your gallery.",
+			);
+			return;
+		}
+		try {
+			const existing = await mediaLibrary.getPermissionsAsync();
+			let status = existing.status;
+			if (status !== "granted") {
+				const requested = await mediaLibrary.requestPermissionsAsync();
+				status = requested.status;
+			}
+			if (status !== "granted") {
+				Alert.alert(
+					"Photos access needed",
+					"Allow photo library access to save this image.",
+				);
+				return;
+			}
+			await mediaLibrary.saveToLibraryAsync(memory.uri);
+		} catch {
+			Alert.alert(
+				"Download failed",
+				"Couldn't save this image to your gallery.",
+			);
+		}
+	};
+
+	const onOpenMoreMenu = () => {
+		if (Platform.OS === "ios") {
+			const options = allowDelete
+				? ["Download", "Share", "Delete", "Cancel"]
+				: ["Download", "Share", "Cancel"];
+			const cancelButtonIndex = options.length - 1;
+			const destructiveButtonIndex = allowDelete ? 2 : undefined;
+			ActionSheetIOS.showActionSheetWithOptions(
+				{
+					options,
+					cancelButtonIndex,
+					destructiveButtonIndex,
+				},
+				(buttonIndex) => {
+					if (buttonIndex === cancelButtonIndex) {
+						return;
+					}
+					const downloadIndex = 0;
+					const shareIndex = 1;
+					const deleteIndex = allowDelete ? 2 : -1;
+					if (buttonIndex === downloadIndex) {
+						void onSaveCurrentImage();
+						return;
+					}
+					if (buttonIndex === shareIndex) {
+						void onShareCurrentImage();
+						return;
+					}
+					if (allowDelete && buttonIndex === deleteIndex) {
+						onDeleteCurrentImage();
+					}
+				},
+			);
+			return;
+		}
+
+		const buttons = allowDelete
+			? [
+					{ text: "Download", onPress: () => void onSaveCurrentImage() },
+					{ text: "Share", onPress: () => void onShareCurrentImage() },
+					{
+						text: "Delete",
+						style: "destructive" as const,
+						onPress: onDeleteCurrentImage,
+					},
+					{ text: "Cancel", style: "cancel" as const },
+				]
+			: [
+					{ text: "Download", onPress: () => void onSaveCurrentImage() },
+					{ text: "Share", onPress: () => void onShareCurrentImage() },
+					{ text: "Cancel", style: "cancel" as const },
+				];
+		Alert.alert("Options", undefined, buttons);
 	};
 
 	const viewerBody = (
@@ -334,6 +545,7 @@ export function ImageViewer({
 							0,
 							Math.min(nextIndex, memories.length - 1),
 						);
+						setCurrentIndex(currentIndexRef.current);
 						prefetchAroundIndex(currentIndexRef.current);
 					}}
 					renderItem={({ item }) => (
@@ -369,99 +581,92 @@ export function ImageViewer({
 							elevation: 8,
 						}}
 					>
-						{allowDelete ? (
-							<Pressable
-								hitSlop={8}
-								onPress={onDeleteCurrentImage}
-								style={{
-									width: 44,
-									height: 44,
-									borderRadius: 22,
-									backgroundColor: "rgba(25,25,27,0.86)",
-									borderWidth: 1,
-									borderColor: "rgba(255,255,255,0.14)",
-									alignItems: "center",
-									justifyContent: "center",
-								}}
+						<Pressable hitSlop={8} onPress={onClose} style={topControlStyle}>
+							<ArrowLeftIcon color={iconColor} height={15} width={15} />
+						</Pressable>
+						{swiftUI ? (
+							<swiftUI.Host
+								matchContents
+								style={{ minHeight: topControlSize, minWidth: topControlSize }}
 							>
-								<TrashIcon color="#ff453a" height={20} width={20} />
-							</Pressable>
+								<swiftUI.ContextMenu>
+									<swiftUI.ContextMenu.Items>
+										<swiftUI.Button
+											systemImage="arrow.down.circle"
+											onPress={() => {
+												void onSaveCurrentImage();
+											}}
+										>
+											Download
+										</swiftUI.Button>
+										<swiftUI.Button
+											systemImage="square.and.arrow.up"
+											onPress={() => {
+												void onShareCurrentImage();
+											}}
+										>
+											Share
+										</swiftUI.Button>
+										{allowDelete ? (
+											<swiftUI.Button
+												systemImage="trash"
+												onPress={onDeleteCurrentImage}
+											>
+												Delete
+											</swiftUI.Button>
+										) : null}
+									</swiftUI.ContextMenu.Items>
+									<swiftUI.ContextMenu.Trigger>
+										<View
+											style={{
+												...topControlStyle,
+											}}
+										>
+											<IconDotsVertical
+												color={iconColor}
+												height={18}
+												width={18}
+											/>
+										</View>
+									</swiftUI.ContextMenu.Trigger>
+								</swiftUI.ContextMenu>
+							</swiftUI.Host>
 						) : (
-							<View style={{ width: 44, height: 44 }} />
-						)}
-						<View style={{ alignItems: "flex-end", gap: 8 }}>
 							<Pressable
 								hitSlop={8}
-								onPress={onClose}
+								onPress={onOpenMoreMenu}
 								style={{
-									width: 44,
-									height: 44,
-									borderRadius: 22,
-									backgroundColor: "rgba(25,25,27,0.86)",
-									borderWidth: 1,
-									borderColor: "rgba(255,255,255,0.14)",
-									alignItems: "center",
-									justifyContent: "center",
+									...topControlStyle,
 								}}
 							>
-								<Text
-									style={{
-										color: "#ffffff",
-										fontSize: 23,
-										lineHeight: 23,
-										fontWeight: "600",
-										marginTop: -1,
-									}}
-								>
-									×
-								</Text>
+								<IconDotsVertical color={iconColor} height={18} width={18} />
 							</Pressable>
-							<View
-								style={{
-									flexDirection: "row",
-									height: 44,
-									width: 102,
-									borderRadius: 22,
-									backgroundColor: "rgba(25,25,27,0.86)",
-									borderWidth: 1,
-									borderColor: "rgba(255,255,255,0.14)",
-									overflow: "hidden",
-								}}
-							>
-								<Pressable
-									hitSlop={8}
-									onPress={() => {
-										void onSaveCurrentImage();
-									}}
-									style={{
-										flex: 1,
-										height: 44,
-										alignItems: "flex-end",
-										justifyContent: "center",
-										paddingRight: 9,
-									}}
-								>
-									<SaveIcon color="#ffffff" height={20} width={20} />
-								</Pressable>
-								<Pressable
-									hitSlop={8}
-									onPress={() => {
-										void onShareCurrentImage();
-									}}
-									style={{
-										flex: 1,
-										height: 44,
-										alignItems: "flex-start",
-										justifyContent: "center",
-										paddingLeft: 9,
-									}}
-								>
-									<ShareIcon color="#ffffff" height={20} width={20} />
-								</Pressable>
-							</View>
-						</View>
+						)}
 					</View>
 				</View>
+				{memories[currentIndex] ? (
+					<View
+						pointerEvents="none"
+						style={{
+							position: "absolute",
+							left: 16,
+							right: 16,
+							bottom: Math.max(insets.bottom + 14, 20),
+							alignItems: "center",
+						}}
+					>
+						<Text
+							numberOfLines={1}
+							style={{
+								fontSize: 14,
+								fontWeight: "600",
+								color: isDark ? "#f5f5f7" : "#1c1c1e",
+							}}
+						>
+							{formatMemoryDateTime(memories[currentIndex].createdAt)}
+						</Text>
+					</View>
+				) : null}
 			</View>
 		</View>
 	);
